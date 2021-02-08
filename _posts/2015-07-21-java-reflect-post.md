@@ -196,3 +196,30 @@ Object obj5 = f2.get(test);
 System.out.println(obj5);
 
 ```
+
+#### JAVA反射使用注意
+
+1、如果反射的类有@Service，@Component等注解，即被Spring托管，那么不能直接去new一个instance的，解决方法是
+
+```java
+method.invoke(GetBeanUtil.getBean(beanName), Param);
+
+public class GetBeanUtil implements ApplicationContextAware {
+  protected static ApplicationContext applicationContext;
+
+  @Override
+  public void setApplicationContext(ApplicationContext arg0) throws BeansException {
+    if (applicationContext == null) {
+      applicationContext = arg0;
+    }
+  }
+
+  public static Object getBean(String name) {
+    return applicationContext.getBean(name);
+  }
+
+  public static <T> T getBean(Class<T> clazz) {
+    return applicationContext.getBean(clazz);
+  }
+}
+```

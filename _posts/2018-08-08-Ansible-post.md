@@ -158,6 +158,18 @@ facts组件是用来收集被管理节点信息的，使用setup模块可以获�
 ```html
 ansible 10.2.22.23 -m setup
 
+# 这条命令有的时候运行不起来，提示no match，解决是在/etc/ansible/hosts里面人工配置下，但是不应该？ 因为已经做了ssh-copy-id了
+# 这边是这样的。如果运行ansible -i ./hosts remote -m ping 时候会报错了
+
+{
+    "changed": false,
+    "msg": "Failed to connect to the host via ssh: Permission denied (publickey,gssapi-keyex,gssapi-with-mic,password).\r\n",
+    "unreachable": true
+}
+
+这个时候就要ssh-copy-id去解决了
+
+
 # 可以过滤
 ansible 10.2.22.23 -m setup -a "filter=*ipv4"
 ```

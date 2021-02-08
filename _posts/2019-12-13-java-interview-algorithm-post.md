@@ -1225,7 +1225,7 @@ public class MinStack {
 
 题目：求二叉树的最小深度
 
-思路：未采用树的递归，使用层次遍历，左右子树结点为null的就是最小的深度了，判断好边界条件
+思路：未采用树的递归，使用层次遍历，左右子树结点为null的就是最小的深度了，判断好边界条件，也可以使用递归
 
 ```java
 package com.qiming.algorithm.nowcoder;
@@ -1281,6 +1281,63 @@ class TreeNode {
   TreeNode right;
   TreeNode(int x) { val = x; }
 }
+
+// 递归的写法
+
+class Solution {
+  public int minDepth(TreeNode root) {
+    if(root == null) return 0;
+    //这道题递归条件里分为三种情况
+    //1.左孩子和有孩子都为空的情况，说明到达了叶子节点，直接返回1即可
+    if(root.left == null && root.right == null) return 1;
+    //2.如果左孩子和由孩子其中一个为空，那么需要返回比较大的那个孩子的深度        
+    int m1 = minDepth(root.left);
+    int m2 = minDepth(root.right);
+    //这里其中一个节点为空，说明m1和m2有一个必然为0，所以可以返回m1 + m2 + 1;
+    if(root.left == null || root.right == null) return m1 + m2 + 1;
+
+    //3.最后一种情况，也就是左右孩子都不为空，返回最小深度+1即可
+    return Math.min(m1,m2) + 1;
+  }
+}
+
+// 如果不加左右的判断条件，出现如下单边树的情况会不好处理，其实深度是3，加了判断会加上真实的树的高度
+   1
+  1
+ 1 1
+
+// 可以简化
+class Solution {
+  public int minDepth(TreeNode root) {
+    if(root == null) return 0;
+    int m1 = minDepth(root.left);
+    int m2 = minDepth(root.right);
+    //1.如果左孩子和右孩子有为空的情况，直接返回m1+m2+1
+    //2.如果都不为空，返回较小深度+1
+    return root.left == null || root.right == null ? m1 + m2 + 1 : Math.min(m1,m2) + 1;
+  }
+}
+
+// 正常想法，不是太好
+class Solution {
+  public int minDepth(TreeNode root) {
+    if(root == null) {
+        return 0;
+    }
+    if(root.left == null && root.right == null) {
+        return 1;
+    }
+    int ans = Integer.MAX_VALUE;
+    if(root.left != null) {
+        ans = Math.min(minDepth(root.left), ans);
+    }
+    if(root.right != null) {
+        ans = Math.min(minDepth(root.right), ans);
+    }
+    return ans + 1;
+  }
+}
+
 ```
 
 #### 16.计算逆波兰式（NC）

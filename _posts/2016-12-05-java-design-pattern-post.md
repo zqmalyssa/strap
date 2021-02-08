@@ -829,6 +829,195 @@ final class JdkDynamicAopProxy implements AopProxy, InvocationHandler, Serializa
 
 书中为鸭鹅叫的案例，经典的MVC案例
 
+#### **中介模式**
+
+**中介模式**与现实中的委托行为类似
+
+```java
+/ **
+* 中介模式
+*
+* 抽象中介者（Mediator）角色：它是中介者的接口，提供了合作者对象注册与转发合作者对象信息的抽象方法。
+*
+* 具体中介者（ConcreteMediator）角色：实现中介者接口，定义一个 List 来管理合作者对象，协调各个合作者角色之间的交互关系，因此它依赖于合作者角色。
+*
+* 抽象合作者类（Colleague）角色：定义合作者类的接口，保存中介者对象，提供合作者对象交互的抽象方法，实现所有相互影响的合作者类的公共功能。
+*
+* 具体合作者类（Concrete Colleague）角色：是抽象合作者类的实现者，当需要与其他合作者对象交互时，由中介者对象负责后续的交互。
+*/
+public class Test {
+
+	 public static void main(String[] args) {
+			 Mediator mediator = new HouseMediator();
+			 BaseColleague dada = new Tenant(mediator,"租客达达");
+			 BaseColleague haha = new Tenant(mediator,"租客哈哈");
+
+			 BaseColleague gaga = new Landlord(mediator,"房东嘎嘎");
+			 BaseColleague hehe = new Landlord(mediator,"房东呵呵");
+
+			 mediator.addColleague(dada).addColleague(haha).addColleague(gaga).addColleague(hehe);
+
+			 dada.sendMessage("我要租两室一厅的房子");
+			 haha.sendMessage("我要租三室一厅的房子");
+
+			 gaga.sendMessage("我要出租两室一厅的房子");
+			 hehe.sendMessage("我要出租三室一厅的房子");
+
+	 }
+}
+
+public abstract class BaseColleague {
+
+    Mediator mediator;
+
+    String name;
+
+    Integer type;
+
+    public Integer getType() {
+        return type;
+    }
+
+    public void setType(Integer type) {
+        this.type = type;
+    }
+
+    public Mediator getMediator() {
+        return mediator;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * 发布消息
+     *
+     * @param content
+     */
+    abstract void sendMessage(String content);
+
+    /**
+     * 接收消息
+     *
+     * @param content
+     */
+    abstract void acceptMessage(String content);
+}
+
+public enum ColleagueType {
+    /**
+     * 租客类型
+     */
+    TENANT(1),
+    /**
+     * 房东类型
+     */
+    LANDORD(2);
+    private Integer value;
+
+    ColleagueType(Integer value) {
+        this.value = value;
+    }
+
+    public Integer getValue() {
+        return value;
+    }
+
+}
+
+public class Landlord extends BaseColleague {
+
+
+    public Landlord(Mediator mediator, String name) {
+        this.mediator = mediator;
+        this.name = name;
+        this.type = ColleagueType.LANDORD.getValue();
+    }
+
+    @Override
+    public void sendMessage(String content) {
+        System.out.println(this.name + "向中介发布消息：" + content);
+        mediator.notifyOtherColleague(this, content);
+    }
+
+    @Override
+    void acceptMessage(String content) {
+        System.out.println(this.name + ":" + "接收来自中介的消息："
+            + content);
+    }
+
+}
+
+public class Tenant extends BaseColleague {
+
+
+    public Tenant(Mediator mediator, String name) {
+        this.mediator = mediator;
+        this.name = name;
+        this.type = ColleagueType.TENANT.getValue();
+    }
+
+    @Override
+    public void sendMessage(String content) {
+        System.out.println(this.name + "发布消息：" + content);
+        mediator.notifyOtherColleague(this, content);
+    }
+
+    @Override
+    void acceptMessage(String content) {
+        System.out.println(this.name + ":" + "接收来自中介的消息："
+            + content);
+    }
+
+}
+
+public interface Mediator {
+    /**
+     * 添加合作者
+     * @param baseColleague
+     * @return
+     */
+    Mediator addColleague(BaseColleague baseColleague);
+
+    /**
+     * 通知其他合作者
+     * @param baseColleague
+     * @param content
+     */
+    void notifyOtherColleague(BaseColleague baseColleague, String content);
+}
+
+
+public class HouseMediator implements Mediator{
+
+    List<BaseColleague> baseColleagues = new ArrayList<BaseColleague>();
+
+    @Override
+    public Mediator addColleague(BaseColleague baseColleague) {
+        baseColleagues.add(baseColleague);
+        return this;
+    }
+
+    @Override
+    public void notifyOtherColleague(final BaseColleague baseColleague, String content) {
+        final String translateContent = baseColleague.getName() + content;
+        if(!baseColleagues.isEmpty()){
+            List<BaseColleague> others =  baseColleagues.stream()
+                .filter(x->!baseColleague.getType().equals(x.getType())).collect(Collectors.toList());
+            if(others.isEmpty()){
+                return;
+            }
+            others.stream().forEach(x->{
+                x.acceptMessage(translateContent);
+            });
+        }
+    }
+}
+
+```
+
+
 模式总结：
 
 1. 创建型，将客户从所需要实例化的对象中解耦，有Singleton，Builder，Prototype，Abstract Factory，Factory Method

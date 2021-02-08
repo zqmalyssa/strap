@@ -1867,6 +1867,39 @@ scheduleWithFixedDelay
 
 貌似也是推迟一段时间执行任务，当结束前一个执行后延迟的时间，scheduleWithFixedDelay 比如当前一个任务结束的时刻，开始结算间隔时间，如0秒开始执行第一次任务，任务耗时5秒，任务间隔时间3秒，那么第二次任务执行的时间是在第8秒开始
 
+
+### Spring中的BeanUtils
+
+1、Spring中的BeanUtils使用要谨慎，看业务场景，具体规则如下
+
+```html
+
+Hotel1 h11 = Hotel1.buildAll();
+Hotel1 h12 = Hotel1.buildWithNull();
+
+
+// 同一个类中，可以递归的copy
+BeanUtils.copyProperties(h11, h12);
+
+Hotel2 h22 = Hotel2.buildWithNull();
+
+// 不同的类中，没有共用相同的类，无法递归的copy
+BeanUtils.copyProperties(h11, h22);
+
+SimpleCopy1 s1 = SimpleCopy1.build();
+SimpleCopy2 s2 = SimpleCopy2.build();
+
+// 不同的类中，原生类型可以copy
+BeanUtils.copyProperties(s1, s2);
+
+SimpleCopy1 sd1 = SimpleCopy1.buildDeep();
+SimpleCopy2 sd2 = SimpleCopy2.buildDeep();
+
+// 不同的类中，共用了相同的类，可以递归copy
+BeanUtils.copyProperties(sd1, sd2);
+```
+
+
 ### 常见问题
 
 1、exchange，post等的问题

@@ -533,6 +533,34 @@ netstat -anp | grep Pid
 
 ```
 
+j.查看系统的开机，关机时间
+
+```html
+last命令
+
+查看最近一次开机时间
+who -b
+last -1 reboot
+
+查看关机记录
+last -x | grep shutdown
+
+查看历史的启动时间
+last reboot
+
+查看系统从上次开机到现在已经运行多久了
+uptime 或者 w
+```
+
+k.设置系统ssh超时时间
+
+```html
+vim /etc/ssh/sshd_config
+ClientAliveInterval 30     每30秒往客户端发送会话请求，保持连接
+ClientAliveCountMax 3      3表示重连3次失败后，重启SSH会话
+
+```
+
 ### 十二、vi中的快速操作
 
 以下是在command模式下的快捷键
@@ -867,3 +895,93 @@ reboot
 rpm -qa | grep kernel
 yum remove XXX
 ```
+
+### 十八、linux的Shell
+
+系统的 shell 有很多种, 比如 bash, sh, zsh 之类的, 如果要查看某一个用户使用的是什么 shell，可以使用
+
+```html
+echo $Shell
+echo $0
+
+对于常见的加载配置文件，有
+/etc/profile
+/etc/bashrc
+
+~/.bashrc
+~/.profile
+
+这里说bash的shell，如果是sh或者其他shell，显然是不会运行bashrc的
+```
+
+这里还是有区别的，login shell 和 no-login shell
+
+“login shell” 代表用户登入, 比如使用 “su -“ 命令, 或者用 ssh 连接到某一个服务器上, 都会使用该用户默认 shell 启动 login shell 模式.该模式下的 shell 会去自动执行 /etc/profile 和 ~/.profile 文件, 但不会执行任何的 bashrc 文件, 所以一般再 /etc/profile 或者 ~/.profile 里我们会手动去 source bashrc 文件.
+
+而 no-login shell 的情况是我们在终端下直接输入 bash 或者 bash -c “CMD” 来启动的 shell.该模式下是不会自动去运行任何的 profile 文件。比如
+```html
+bash -c "ping 10.2.2.2"
+
+sh -c "ping 10.2.2.2"
+```
+
+interactive shell 和 non-interactive shell
+
+interactive shell 是交互式shell, 顾名思义就是用来和用户交互的, 提供了命令提示符可以输入命令.该模式下会存在一个叫 PS1 的环境变量, 如果还不是 login shell 的则会去 source /etc/bash.bashrc 和 ~/.bashrc 文件
+
+non-interactive shell 则一般是通过 bash -c “CMD” 来执行的bash.该模式下不会执行任何的 rc 文件, 不过还存在一种特殊情况
+
+可能存在的模式组合中 RC 文件的执行
+
+SSH login, sudo su - [USER] 或者 mac 下开启终端，ssh 登入和 su - 是典型的 interactive login shell, 所以会有 PS1 变量, 并且会执行
+
+```html
+/etc/profile
+~/.profile
+```
+
+在命令提示符状态下输入 bash 或者 ubuntu 默认设置下打开终端，这样开启的是 interactive no-login shell, 所以会有 PS1 变量, 只会执行
+
+```html
+/etc/bash.bashrc
+~/.bashrc
+```
+
+通过 bash -c “CMD” 或者 bash BASHFILE 命令执行的 shell，这些命令什么都不会执行, 也就是设置 PS1 变量, 不执行任何 RC 文件
+
+最特殊! 通过 “ssh server CMD” 执行的命令 或 通过程序执行远程的命令，这是最特殊的一种模式, 理论上应该既是 非交互 也是 非登入的, 但是实际上他不会设置 PS1, 但是还会执行
+```html
+/etc/bash.bashrc
+bashrc
+```
+
+bashrc 和 profile 的区别
+
+profile: 其实看名字就能了解大概了, profile 是某个用户唯一的用来设置环境变量的地方, 因为用户可以有多个 shell 比如 bash, sh, zsh 之类的, 但像环境变量这种其实只需要在统一的一个地方初始化就可以了, 而这就是 profile.
+
+bashrc: bashrc 也是看名字就知道, 是专门用来给 bash 做初始化的比如用来初始化 bash 的设置, bash 的代码补全, bash 的别名, bash 的颜色. 以此类推也就还会有 shrc, zshrc 这样的文件存在了, 只是 bash 太常用了而已.
+
+=> 代表 在文件内部 source, 换行的 => 代表自身执行结束以后在 source, 同一行表示先 source 在执行自身
+
+```html
+普通 login shell
+/etc/profile
+   => /etc/bash.bashrc
+
+~/.profile
+  => ~/.bashrc => /etc/bashrc
+
+终端中直接运行 bash
+/etc/bash.bashrc
+~/.bashrc => /etc/bashrc
+
+bash -c “CMD”
+什么都不执行
+
+ssh server “CMD”
+/etc/bash.bashrc => /etc/profile
+~/.bashrc => | /etc/bashrc => /etc/profile
+             | ~/.profile
+```
+
+这里会有点小混乱, 因为既有 /etc/bash.bashrc 又有 /etc/bashrc, 其实是这样的 ubuntu 和 debian 有 /etc/bash.bashrc 文件但是没有 /etc/bashrc, 其他的系统基本都是只有 /etc/bashrc 没有 /etc/bash.bashrc.

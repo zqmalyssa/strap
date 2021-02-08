@@ -916,3 +916,62 @@ SELECT id,SUM(num) FROM (
 ```
 
 使用Union，则所有返回的行都是唯一的，如同您已经对整个结果集合使用了DISTINCT,若果多表查询结果中有完全一致的数据，mysql将自动去重，使用Union all，则不会排重，返回所有的行，从效率上说，UNION ALL 要比UNION快很多，所以，如果可以确认合并的两个结果集中不包含重复的数据的话，那么就使用UNION ALL
+
+4.mysql中join的使用
+
+先造点数据
+
+```mysql
+create table tab1 (
+	id int,
+    size int
+);
+
+create table tab2 (
+	size int,
+    name varchar(20)
+);
+
+insert into tab1 values(1, 10);
+insert into tab1 values(2, 20);
+insert into tab1 values(3, 30);
+
+insert into tab2 values(10, 'AAA');
+insert into tab2 values(20, 'BBB');
+insert into tab2 values(20, 'CCC');
+
+```
+
+内连接和外连接有区别，inner join又叫等值连接，只返回两个表中连接字段相等的行。外连接，left join，right join，full join
+
+left join 和 left outer join 区别， 简单来说就是没有区别，只是写法不同
+
+on 和 where 条件的区别 （只对外连接有区别）
+
+数据库在通过连接两张或多张表来返回记录时，都会生成一张中间的临时表，然后再将这张临时表返回给用户。
+
+1、on 条件是在生成临时表时使用的条件，它不管 on 中的条件是否为真，都会返回左边表中的记录。
+2、where 条件是在临时表生成好后，再对临时表进行过滤的条件。这时已经没有 left join 的含义（必须返回左边表的记录）了，条件不为真的就全部过滤掉。
+
+对于内连接没区别，因为内连接生成的临时表中只会保留符合on条件的数据，所以数据在 on 和 where 条件中过滤没区别。
+对于外连接（左连接，右连接，全连接）有区别，外连接生成的临时表中会保留不符合on条件的数据，对于这些数据，在 on 和 where 条件中过滤就区别了。
+
+```mysql
+-- 4条记录，left join保证左边的记录都存在
+select * from tab1 left join tab2 on tab1.size = tab2.size;
+
+-- 3条记录
+select * from tab1 join tab2 on tab1.size = tab2.size;
+
+-- 1条记录
+select * from tab1 left join tab2 on (tab1.size = tab2.size) where tab2.name='AAA';
+-- 3条记录
+select * from tab1 left join tab2 on (tab1.size = tab2.size and tab2.name='AAA');
+
+-- 1条记录，内联 where和on都一样
+-- 而外连接生成的临时表中会保留不符合on条件的数据，对于这些数据，在 on 和 where 条件中过滤就区别了
+select * from tab1 join tab2 on (tab1.size = tab2.size) where tab2.name='AAA';
+-- 1条记录
+-- 因为内连接生成的临时表中只会保留符合on条件的数据，所以数据在 on 和 where 条件中过滤没区别
+select * from tab1 join tab2 on (tab1.size = tab2.size and tab2.name='AAA');
+```

@@ -958,6 +958,11 @@ public class SessionShareController {
 
 用postman调用`http://localhost/session/get`，能看见port值不停在变，但都能正常取到之前设置的值，说明session共享已经成功
 
+### Redis的一些使用场景
+
+1、比如，需要进行简单的记录，我记录某个key，包含哪些元素，事后，再获取key，进行处理
+
+
 ### Redis运维
 
 **1,默认是127启动，需要改成可以远程访问**

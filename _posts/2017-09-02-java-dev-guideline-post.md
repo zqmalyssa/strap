@@ -5,7 +5,7 @@ tags: [java, code]
 author-id: zqmalyssa
 ---
 
-Java开发的一些守则
+Java开发的一些守则以及一些问题的解决方法
 
 #### 阿里规范
 
@@ -26,3 +26,34 @@ Query：数据查询对象，各层接收上层的查询请求。 注意超过2�
 数据传输对象：xxxDTO，xxx为业务领域相关的名称。
 展示对象：xxxVO，xxx一般为网页名称。
 POJO是DO/DTO/BO/VO的统称，禁止命名成xxxPOJO。
+
+#### 疑难杂症
+
+1、Java 9-11 中的PostConstruct和PreDestroy注释错误怎么解决
+
+注释位于模块java.xml.ws.annotation中。因为它是一个Java EE模块，所以不推荐使用它在Java 9中删除，并且默认情况下不会解析，因此需要手动添加它--add-modules。
+
+在Java 11中，模块将完全消失，并且--add-modules会失败，因为java.xml.ws.annotation不再存在。最好的解决方案是立即用第三方依赖替换它。使用Java Commons Annotations可以在Maven Central上找到它：
+
+```java
+<dependency>
+    <groupId>javax.annotation</groupId>
+    <artifactId>javax.annotation-api</artifactId>
+    <version>1.3.1</version>
+</dependency>
+```
+
+这边也可以直接将项目版本降到1.8版本
+
+2、import com.sun.tools.attach.VirtualMachine 或者 import com.sun.tools.attach.VirtualMachineDescriptor 异常
+
+也是包依赖的问题，直接在idea里的library里面增加tools.jar包，这个jar包在jdk安装目录的lib目录下面
+
+### 正则的使用
+
+1、正则中想要匹配一些特殊的字符，需要"\"进行修饰
+
+```html
+result\.detail\[[0-9]*\]\.caseList\[[0-9]*\]\.status
+```
+如上面这种，`.`和`[]`都要记得加上特殊标识

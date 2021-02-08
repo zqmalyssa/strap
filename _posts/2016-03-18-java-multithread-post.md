@@ -350,6 +350,14 @@ RejectedExecutionHandler提供了四种方式来处理任务拒绝策略
 简单解释如下，这四种策略是独立无关的，是对任务拒绝处理的四中表现形式。最简单的方式就是直接丢弃任务。但是却有两种方式，到底是该丢弃哪一个任务，比如可以丢弃当前将要加入队列的任务本身（DiscardPolicy）或者丢弃任务队列中最旧任务（DiscardOldestPolicy）。丢弃最旧任务也不是简单的丢弃最旧的任务，而是有一些额外的处理。除了丢弃任务还可以直接抛出一个异常（RejectedExecutionException），这是比较简单的方式。抛出异常的方式（AbortPolicy）尽管实现方式比较简单，但是由于抛出一个RuntimeException，因此会中断调用者的处理过程。除了抛出异常以外还可以不进入线程池执行，在这种方式（CallerRunsPolicy）中任务将由调用者线程去执行
 
 此外，如果我们使用的是springboot进行开发，那么可以尝试下springboot提供的@Async注解，它用到了线程中`ThreadPoolTaskExecutor`
+这边可能说的有点不对 默认是`SimpleAsyncTaskExecutor`，可以看下Spring的源码
+
+而Spring的`ThreadPoolTaskExecutor`，和原生的有什么不同，个人的理解，使用上的
+
+1、首先拒绝策略和上面是一样的，有4种
+2、队列，个人认为就是有界队列，好像没有设置队列的地方，默认值是2147483647，也就是int型的最大max值
+3、用队列的话，估好值，不用队列的话，默认的很大，那么max的效果不一定能出来
+
 
 这里还需要将的就是线程池的启动机制了，一定是结合上面的队列，拒绝策略进行的，下面是重点：
 
