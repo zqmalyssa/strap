@@ -166,7 +166,7 @@ IJ经常要用到一些插件，现在举个代码格式的插件例子，因为
 Plugin jar file not found: D:\Users\qmzhang\.IntelliJIdea2018.2\config\plugins\EclipseFormatter\lib\adapter.jar
 ```
 
-所以把下载下来的jar扔到这个路径下ok了吧
+所以把下载下来的jar扔到这个路径下ok了吧，每开启一个新的项目后，需要enable这个插件，然后才能生效
 
 #### 8.Google插件
 
