@@ -21,6 +21,7 @@ public class ClassGen<T> {
 
   private T a;
 
+  // 这个成员方法不是泛型方法
   public ClassGen(T a) {
     this.a = a;
   }
@@ -44,6 +45,8 @@ public class ClassGen<T> {
 
 ```
 现在，创建对象时必须指明持有什么类型的对象，将其置于尖括号内，你就只能在ClassGen中存入该类型（但这类子类是支持的，因为多态和泛型并不冲突）对象
+
+注意，虽然成员方法中使用到了泛型，但是这并不是一个泛型方法，这只是类中一个普通的成员方法，只不过它的返回值是在声明泛型类已经声明过的泛型
 
 #### 泛型接口
 
@@ -87,6 +90,8 @@ public class Fibonacci implements Generator<Integer> {
 #### 泛型方法
 
 泛型也可以作用在方法上，是否拥有泛型方法与其所在的类是否是泛型没有关系，泛型方法使得该方法能够独立于类而产生变化，如果可以使用泛型方法可以取代将整个类泛型化，那就应该用泛型方法，因为可以使事情更清楚明白，static的方法而言，无法访问泛型类，所以只能用泛型方法
+
+泛型方法，public与返回值中间的<T>非常重要，可以理解为声明此方法为泛型方法，这个T可以出现在这个泛型方法的任意位置，泛型的数量也可以为任意多个
 
 ```java
 package com.qiming.test.genericity.method;
@@ -136,6 +141,30 @@ public static void main(String[] args) {
     System.out.println(ls);
 }
 ```
+
+另外，在泛型类（带<T>）中声明一个泛型方法，使用泛型E，这种泛型E可以为任意类型，可以类型与T相同，也可以不同，而如果使用泛型T（类上的）， 注意了，这个T是一种全新的类型，可以与泛型类中声明的T不是一种类型
+
+```java
+
+class GenerateTest<T> {
+
+  public void show_1(T t) {
+    System.out.println(t.toString());
+  }
+
+  public <E> void show_3(E t) {
+    System.out.println(t.toString());
+  }
+
+  //  注意这个T，跟泛型类一样，但是可以表达不同的意思
+  public <T> void show_2(T t) {
+    System.out.println(t.toString());
+  }
+}
+
+```
+
+无论何时，如果你能做到，你就该尽量使用泛型方法。也就是说，如果使用泛型方法将整个类泛型化，那么就应该使用泛型方法。另外对于一个static的方法而已，无法访问泛型类型的参数。所以如果static方法要使用泛型能力，就必须使其成为泛型方法。
 
 #### 泛型擦除
 
@@ -568,6 +597,8 @@ public class BasicBounds {
 泛型类的类型参数被限制为多边界时，具体类要放在第一个，接口放在后面
 多边界时，具体类只能有一个，可以有多个接口
 
+
+泛型的上下边界添加，必须与泛型的声明在一起 。
 
 #### 泛型通配符
 

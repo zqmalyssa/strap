@@ -29,5 +29,3 @@ ruby安装成功后，执行命令，热点装需要等一会
 ```html
 # bundle exec jekyll serve
 ```
-
-

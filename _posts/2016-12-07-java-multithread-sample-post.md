@@ -1169,3 +1169,101 @@ class NodeTestMain3 {
 }
 
 ```
+
+#### 线程安全/非安全集合引起的一些问题
+
+```java
+@Test
+public void testThreadSafe() {
+
+  CountDownLatch countDownLatch = new CountDownLatch(5);
+  // ThreadSafe
+//    List<Integer> result = new ArrayList<>();
+
+  // 安全的，list会报错，或者数量有问题
+  Vector<Integer> result = new Vector<>();
+
+
+  for (int i = 0; i < 5; i++) {
+
+    testExecutor.execute(() -> {
+
+      for (int j = 0; j < 100; j++) {
+
+        result.add(j);
+
+      }
+
+      countDownLatch.countDown();
+    });
+
+  }
+
+  try {
+    countDownLatch.await();
+  } catch (InterruptedException e) {
+    e.printStackTrace();
+  }
+
+  // size上就会有问题，显然意图是500，有的时候就会报错
+  System.out.println(result.size());
+
+  System.out.println("finish");
+
+}
+```
+
+配个Collections.synchronizedList说
+
+```java
+@NotThreadSafe  
+class BadListHelper <E> {  
+    public List<E> list = Collections.synchronizedList(new ArrayList<E>());  
+
+    public synchronized boolean putIfAbsent(E x) {  
+        boolean absent = !list.contains(x);  
+        if (absent)  
+            list.add(x);  
+        return absent;  
+    }  
+}  
+```
+
+上面乍看上去是线程安全的，其实还是不是的
+
+首先对于synchronized关键字，需要说明的是，它是基于当前的对象来加锁的，上面的方法也可以这样写：
+
+```java
+public boolean putIfAbsent(E x) {  
+    synchronized(this) {  
+        boolean absent = !list.contains(x);  
+        if (absent)  
+            list.add(x);  
+        return absent;  
+    }  
+}  
+```
+
+所以这里的锁其实是BadListHelper对象， 而可以肯定的是Collections.synchronizedList返回的线程安全的List内部使用的锁绝对不是BadListHelper的对象，应为你在声明和初始化这个集合的过程之中，你尚且都不知道这个对象的存在。所以BadListHelper中的putIfAbsent方法和线程安全的List使用的不是同一个锁，因此上面的这个加了synchronized关键字的方法依然不能实现线程安全性。
+
+正确的写法是对list加锁
+
+```java
+@ThreadSafe  
+class GoodListHelper <E> {  
+    public List<E> list = Collections.synchronizedList(new ArrayList<E>());  
+
+    public boolean putIfAbsent(E x) {  
+        synchronized (list) {  
+            boolean absent = !list.contains(x);  
+            if (absent)  
+                list.add(x);  
+            return absent;  
+        }  
+    }  
+}  
+```
+
+putIfAbsent方法和List并不是使用的同一个锁对象，List使用的锁对象并不是BadListHelper，而是list。假如A线程进入putIfAbsent方法，list这个锁并没有被获取（A线程获取的是 BadListHelper这个对象），所以其他线程还能够获得list锁对象来改变list对象(List是个public的)。boolean absent = !list.contains(x);当线程到这串代码结束时，其他线程获得list锁对象，从而就能调用list的方法来改变list对象，这时候就可能导致!list.contains(x)改变，即域absent并不是A线程得到的布尔类型。所以这个类并不是线程安全的。
+
+获得变量的锁就可以改变变量，没有获得变量锁的就不能改变，获得方法的锁就可以执行方法里面的语句。

@@ -78,7 +78,7 @@ ansible -i ./hosts all -m shell -a 'systemctl status mysql'
 
 ```html
 
-# 在主节点上，注意不同用户不一样的
+# 在主节点上，注意不同用户不一样的！！！！，有些有root用户的限制的，不能连接
 ssh-keygen
 ssh-copy-id qmzhang@10.2.22.21
 

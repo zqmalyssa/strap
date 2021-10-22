@@ -13,22 +13,27 @@ reference: 《深入理解JAVA虚拟机》
 
 Java把内存控制的权利交给了Java虚拟机，一旦出现内存泄漏或者内存溢出的问题，如果不了解虚拟机是怎样使用内存的，那么排查错误将是一项非常困难的工作，内存中的几块区域
 
-1. 程序计数器，当做线程所执行的字节码的行号指示器。线程私有。
+1. 程序计数器（Program Counter Register），当做线程所执行的字节码的行号指示器。线程私有。（此内存区域是唯一 一个在Java虚拟机规范中没有规定OutOfMemoryError情况的区域）
 2. 虚拟机栈，就是俗称的栈(Stack)，也是线程私有的。每个方法在执行的时候会创建一个栈帧(Stack Frame)，用于存储局部变量表，操作数栈，动态链接，方法出口等信息。堆栈的区分其实是比较粗糙的
 	- 局部变量表存放了编译期可知的各种基本数据类型、对象引用，64位长度的long和double会占据2个局部变量空间(Slot)，其余数据类型只占用一个
 	- -Xss来指定其大小
 	- 线程私有
-3. 本地方法栈，类似虚拟机栈，只不过是虚拟机栈为虚拟机执行java方法，也就是字节码的服务，而本地方法栈则为虚拟机使用到的native方法服务
-4. Java堆，就是俗称的堆(heap)，是Java虚拟机中所管理的内存中最大的一块，Java堆是所有线程共享的一块内存区域，此内存区域的唯一目的就是存放对象实例，多有的对象实例和数组都要在堆上分配，**Java堆是垃圾收集器管理的主要区域**，目前收集器**基本采用分代算法**，所以Java堆中还可以细分为新生代和老年代，再细致一点有Eden空间，From Survivor空间(S0)，To Survivor空间(S1)等，线程共享的Java堆中可能划分出多个线程私有的分配缓冲区(Thread Local Allocation Buffer，TLAB)，**这货就是ThreadLocal吧？？**，旧生代，用于存放新生代中经过多次垃圾回收依然存活的对象，例如缓存对象，新建的对象也有可能直接在旧生代分配内存
+	- 在Java虚拟机规范中，对这个区域规定了两种异常状况：如果线程请求的栈深度大于虚拟机所允许的深度，将抛出StackOverflowError异常；如果虚拟机栈可以动态扩展（当前大部分的Java虚拟机都可动态扩展，只不过Java虚拟机规范中也允许固定长度的虚拟机栈），如果扩展时无法申请到足够的内存，就会抛出OutOfMemoryError异常。
+3. 本地方法栈（Native Method Stack），类似虚拟机栈，只不过是虚拟机栈为虚拟机执行java方法，也就是字节码的服务，而本地方法栈则为虚拟机使用到的native方法服务，也是线程私有的，与虚拟机栈一样，本地方法栈区域也会抛出StackOverflowError和OutOfMemoryError异常。
+4. Java堆，就是俗称的堆(heap)，是Java虚拟机中所管理的内存中最大的一块，Java堆是所有线程共享的一块内存区域，此内存区域的唯一目的就是存放对象实例，多有的对象实例和数组都要在堆上分配，**Java堆是垃圾收集器管理的主要区域**，目前收集器**基本采用分代算法**，所以Java堆中还可以细分为新生代和老年代，再细致一点新生代可以有Eden空间，From Survivor空间(S0)，To Survivor空间(S1)等，线程共享的Java堆中可能划分出多个线程私有的分配缓冲区(Thread Local Allocation Buffer，TLAB)，**这货就是ThreadLocal吧？？**，旧生代，用于存放新生代中经过多次垃圾回收依然存活的对象，例如缓存对象，新建的对象也有可能直接在旧生代分配内存
 	- -Xms和-Xmx设置堆的最小和最大值，-Xmn设置新生代的值，-XX:SurvivorRatio设置新生代中Eden和Survivor的比例
 	- 另外，不同的GC方式会以不同的方式按SurvivorRatio的值去划分Eden Space和Survivor Space，有些GC方式还会根据运行状况来动态的调整Eden，S0，S1的大小
 	- PretenureSizeThreshold的值代表对象超过多大就不能在新生代分配，此参数在新生代采用Parallel Scavenge GC时无效
 	- 该区域是所有线程共享的
 	- TLAB是新创建的线程在新生代的Eden Space上分配的一块独立空间，由JVM计算，TLABWasteTargetPercent是设置TLAB所占用的Eden Space的百分比，默认是1%，在TLAB上分配内存时不需要加锁，因此给线程中的对象分配内存时尽量在TLAB上分配
-5. 方法区，是各个线程共享的内存区域，它用于存储已被虚拟机加载的类信息，常量，静态变量，即时编译器编译后的代码等数据，有的时候也将方法区描述为堆的一个逻辑部分，很多人愿意把方法区称为永久代
+	- 如果在堆中没有内存完成实例分配，并且堆也无法再扩展时，将会抛出OutOfMemoryError异常。
+5. 方法区（Method Area）（永久代），是各个线程共享的内存区域，它用于存储已被虚拟机加载的类信息，常量，静态变量，即时编译器编译后的代码等数据，有的时候也将方法区描述为堆的一个逻辑部分，很多人愿意把方法区称为永久代
 	- 可以通过-XX:PermSize和-XX:MaxPermSize来指定最小值和最大值
 	- 该区域是全局共享的
+	- jdk8版本中则把永久代给完全删除了，取而代之的是MetaSpace，运行时常量池和静态变量都存储到了堆中，MetaSpace存储类的元数据，MetaSpace直接在本地内存中（Native memory，不在虚拟机中），这样类的元数据分配只受本地内存大小的限制，OOM问题就不存在了，元空间的大小仅受本地内存限制，但可以通过 -XX:MetaspaceSize 和 -XX:MaxMetaspaceSize 来指定元空间的大小。
+	- 去永久代的原因有：（1）字符串存在永久代中，容易出现性能问题和内存溢出。（2）类及方法的信息等比较难确定其大小，因此对于永久代的大小指定比较困难，太小容易出现永久代溢出，太大则容易导致老年代溢出。（3）永久代会为 GC 带来不必要的复杂度，并且回收效率偏低。
 6. 运行时常量池是方法区的一部分，Class文件中除了有类的版本，字段，方法，接口等描述信息外，还有一项信息是常量池(Constant Pool Table)，用于存放编译期生成的各种字面量和符号引用，这部分内容将在类加载后进入方法区的运行时常量池中存放
+7. 直接内存（堆外内存），也叫堆外内存，它并不是虚拟机运行时数据区的一部分，也不是Java虚拟机规范中定义的内存区域，而是Java虚拟机的堆以外的内存，直接受操作系统管理。但是这部分内存也被频繁地使用，而且也可能导致OutOfMemoryError异常出现。使用堆外内存有两个优势，一是减少了垃圾回收，二是提升复制速度，如NIO就是采用堆外内存。可以使用未公开的Unsafe和NIO包下ByteBuffer来创建堆外内存。在JDK1.4中新加入了NIO（New Input/Output）类，引入了一种基于通道（Channel）与缓冲区（Buffer）的I/O方式，它可以使用Native函数库直接分配堆外内存，然后通过一个存储在Java堆中的DirectByteBuffer对象作为这块内存的引用进行操作。这样能在一些场景中显著提高性能，因为避免了在Java堆和Native堆中来回复制数据。
 
 对象在内存中存储的布局
 
@@ -42,6 +47,84 @@ Java把内存控制的权利交给了Java虚拟机，一旦出现内存泄漏或
 	- 句柄，在堆中有句柄池，reference存储的就是对象的句柄地址
 	- 直接访问，在堆中有到对象类型数据的指针，reference中存储的直接就是对象地址
 
+基本就是分为 Heap 和 No Heap（下面是一些野文）
+
+一个java进程最大占用的物理内存为：Max Memory = eden + survivor + old + String Constant Pool + Code cache + compressed class space + Metaspace + Thread stack(*thread num) + Direct + Mapped + JVM + Native Memory
+
+堆和非堆内存有以下几个概念：
+
+init
+
+表示JVM在启动时从操作系统申请内存管理的初始内存大小(以字节为单位)。JVM可能从操作系统请求额外的内存，也可以随着时间的推移向操作系统释放内存（经实际测试，这个内存并没有过主动释放）。这个init的值可能不会定义。
+
+used
+
+表示当前使用的内存量(以字节为单位)
+
+committed
+
+表示保证可供 Jvm使用的内存大小(以字节为单位)。 已提交内存的大小可能随时间而变化(增加或减少)。 JVM也可能向系统释放内存，导致已提交的内存可能小于 init，但是committed永远会大于等于used。
+
+max
+
+表示可用于内存管理的最大内存(以字节为单位)。
+
+总结就是：
+
+used<=committed
+
+used、committed <= max (如果定义了max的话)
+
+committed表示能保证给JVM使用的内存大小。
+
+max和committed可能会随着时间不断变化
+
+max内存不能保证内存分配成功，比如如果分配内存后used>committed了，尽管used<max，那也分配失败。
+
+
+Linux内存与JVM内存
+
+现在有一个Java进程，JVM所有已使用内存区域加起来才2G（不包括Native Memory，也没有显式调用JNI的地方），但从top/pmap上看该进程res已经2.9G了
+
+```html
+
+#heap + noheap
+Memory                         used       total     max        usage
+heap                           1921M      2822M     4812M      39.93%
+par_eden_space                 1879M      2457M     2457M      76.47%
+par_survivor_space             4M         307M      307M       1.56%
+cms_old_gen                    37M        57M       2048M      1.84%
+nonheap                        103M       121M      -1         85.00%
+code_cache                     31M        37M       240M       13.18%
+metaspace                      63M        74M       -1         85.51%
+compressed_class_space         7M         9M        1024M      0.75%
+direct                         997K       997K      -          100.00
+mapped                         0K         0K        -          NaN%
+
+```
+
+```html
+
+#top
+top -p 6267
+top - 17:39:40 up 140 days,  5:39,  5 users,  load average: 0.00, 0.01, 0.00
+Tasks:   1 total,   0 running,   1 sleeping,   0 stopped,   0 zombie
+Cpu(s):  0.2%us,  0.1%sy,  0.0%ni, 99.7%id,  0.0%wa,  0.0%hi,  0.0%si,  0.0%st
+Mem:   8059152k total,  5255384k used,  2803768k free,   148872k buffers
+Swap:        0k total,        0k used,        0k free,  1151812k cached
+
+  PID USER      PR  NI  VIRT  RES  SHR S %CPU %MEM    TIME+  COMMAND
+ 6267 root      20   0 8930m 2.9g  17m S  0.0 37.6   4:13.31 java
+
+```
+
+那么其余的0.9G内存去哪了呢？
+
+这时候就要介绍下JVM与Linux内存的联系了，当Java程序启动后，会根据Xmx为堆预申请一块保留内存，并不会直接使用，也不会占用物理内存。然后申请（malloc之类的方法）Xms大小的虚拟内存，但是由于操作系统的内存管理是惰性的，有一个内存延迟分配的概念。malloc虽然会分配内存地址空间，但是并没有映射到实际的物理内存，只有当对该地址空间赋值时，才会真正的占用物理内存，才会影响RES的大小。
+
+所以可能会出现进程所用内存大于当前堆+非堆的情况。比如说该Java程序在5分钟前，有一定活动，占用了2.6G堆内存（无论堆中的什么代），经过GC之后，虽然堆内存已经被回收了，堆占用很低，但GC的回收只是针对Jvm申请的这块内存区域，并不会调用操作系统释放内存。所以该进程的内存并不会释放，这时就会出现进程内存远远大于堆+非堆的情况。
+
+RES（Resident Set Size）是常驻内存的意思，进程实际使用的物理内存
 
 #### 类编译加载
 
@@ -1306,3 +1389,261 @@ Java中锁的实现是使用的队列同步器，就是一个双端队列
 共享式：可以多个线程同时获取到锁，如：CountDownLatch
 
 ConcurrentHashMap使用的锁分段技术。首先将数据分成一段一段地存储，然后给每一段数据配一把锁，当一个线程占用锁访问其中一个段数据的时候，其他段的数据也能被其他线程访问
+
+**2.内存溢出和内存泄漏问题**
+
+内存泄漏（memory leak）：是指程序在申请内存后，无法释放已申请的内存空间，一次内存泄漏似乎不会有大的影响，但内存泄漏堆积后的后果就是内存溢出。（重启计算机可以解决，但也有可能再次发生内存泄露，内存泄露和硬件没有关系，它是由软件设计缺陷引起的）
+
+内存溢出（out of memory）：指程序申请内存时，没有足够的内存供申请者使用，或者说，给了你一块存储int类型数据的存储空间，但是你却存储long类型的数据，那么结果就是内存不够用，此时就会报错OOM,即所谓的内存溢出。
+
+内存泄漏的堆积最终会导致内存溢出内存溢出，就是你要的内存空间超过了系统实际分配给你的空间，此时系统相当于没法满足你的需求，就会报内存溢出的错误。
+
+具体点是：
+
+内存泄漏是指你向系统申请分配内存进行使用(new)，可是使用完了以后却不归还(delete)，结果你申请到的那块内存你自己也不能再访问（也许你把它的地址给弄丢了），而系统也不能再次将它分配给需要的程序。就相当于你租了个带钥匙的柜子，你存完东西之后把柜子锁上之后，把钥匙丢了或者没有将钥匙还回去，那么结果就是这个柜子将无法供给任何人使用，也无法被垃圾回收器回收，因为找不到他的任何信息。
+
+内存溢出是一个盘子用尽各种方法只能装4个果子，你装了5个，结果掉倒地上不能吃了。这就是溢出。比方说栈，栈满时再做进栈必定产生空间溢出，叫上溢，栈空时再做退栈也产生空间溢出，称为下溢。就是分配的内存不足以放下数据项序列,称为内存溢出。说白了就是我承受不了那么多，那我就报错。
+
+常发性内存泄漏:
+发生内存泄漏的代码会被多次执行到，每次被执行的时候都会导致一块内存泄漏。
+
+偶发性内存泄漏:
+发生内存泄漏的代码只有在某些特定环境或操作过程下才会发生。常发性和偶发性是相对的。对于特定的环境，偶发性的也许就变成了常发性的。所以测试环境和测试方法对检测内存泄漏至关重要。
+
+一次性内存泄漏:
+发生内存泄漏的代码只会被执行一次，或者由于算法上的缺陷，导致总会有一块仅且一块内存发生泄漏。比如，在类的构造函数中分配内存，在析构函数中却没有释放该内存，所以内存泄漏只会发生一次。
+
+隐式内存泄漏:
+程序在运行过程中不停的分配内存，但是直到结束的时候才释放内存。严格的说这里并没有发生内存泄漏，因为最终程序释放了所有申请的内存。但是对于一个服务器程序，需要运行几天，几周甚至几个月，不及时释放内存也可能导致最终耗尽系统的所有内存。所以，我们称这类内存泄漏为隐式内存泄漏。
+
+内存溢出的一些原因：
+
+1.内存中加载的数据量过于庞大，如一次从数据库取出过多数据；
+2.集合类中有对对象的引用，使用完后未清空，使得JVM不能回收；
+3.代码中存在死循环或循环产生过多重复的对象实体；
+4.使用的第三方软件中的BUG；
+5.启动参数内存值设定的过小
+
+内存溢出的解决方法：
+
+第一步，修改JVM启动参数，直接增加内存。(-Xms，-Xmx参数一定不要忘记加。)
+
+第二步，检查错误日志，查看“OutOfMemory”错误前是否有其 它异常或错误。
+
+第三步，对代码进行走查和分析，找出可能发生内存溢出的位置。
+
+重点排查以下几点：
+
+1.检查对数据库查询中，是否有一次获得全部数据的查询。一般来说，如果一次取十万条记录到内存，就可能引起内存溢出。这个问题比较隐蔽，在上线前，数据库中数据较少，不容易出问题，上线后，数据库中数据多了，一次查询就有可能引起内存溢出。因此对于数据库查询尽量采用分页的方式查询。
+2.检查代码中是否有死循环或递归调用。
+3.检查是否有大循环重复产生新对象实体。
+4.检查List、MAP等集合对象是否有使用完后，未清除的问题。List、MAP等集合对象会始终存有对对象的引用，使得这些对象不能被GC回收。
+
+第四步，使用内存查看工具动态查看内存使用情况（jvisualvm）
+
+在JVM抛出OutOfMemoryError之前，垃圾收集器一般会出马先尝试回收内存。
+
+内存溢出的几种场景
+
+1、堆内存溢出，堆内存中主要存放对象、数组等，只要不断地创建这些对象，并且保证 GC Roots 到对象之间有可达路径来避免垃圾收集回收机制清除这些对象，当这些对象所占空间超过最大堆容量时，就会产生 OutOfMemoryError 的异常。堆内存异常示例如下：
+
+```java
+
+/**
+* 设置最大堆最小堆：-Xms20m -Xmx20m
+* 运行时，不断在堆中创建OOMObject类的实例对象，且while执行结束之前，GC Roots(代码中的oomObjectList)到对象(每一个OOMObject对象)之间有可达路径，垃圾收集器就无法回收它们，最终导致内存溢出。
+*/
+public class HeapOOM {
+    static class OOMObject {
+    }
+    public static void main(String[] args) {
+        List<OOMObject> oomObjectList = new ArrayList<>();
+        while (true) {
+            oomObjectList.add(new OOMObject());
+        }
+    }
+}
+
+```
+
+运行后会报异常，在堆栈信息中可以看到（注意抛错的信息）：
+
+报错信息：java.lang.OutOfMemoryError: Java heap space 的信息，说明在堆内存空间产生内存溢出的异常。
+
+新产生的对象最初分配在新生代，新生代满后会进行一次 Minor GC，如果 Minor GC 后空间不足会把该对象和新生代满足条件的对象放入老年代，老年代空间不足时会进行 Full GC，之后如果空间还不足以存放新对象则抛出 OutOfMemoryError 异常。内存中加载的数据过多如一次从数据库中取出过多数据；集合对对象引用过多且使用完后没有清空
+
+2、虚拟机栈/本地方法栈溢出
+
+StackOverflowError：当线程请求的栈的深度大于虚拟机所允许的最大深度，则抛出StackOverflowError，简单理解就是虚拟机栈中的栈帧数量过多（一个线程嵌套调用的方法数量过多）时，就会抛出StackOverflowError异常。最常见的场景就是方法无限递归调用，如下：
+
+```java
+
+/**
+* 设置每个线程的栈大小：-Xss256k
+* 运行时，不断调用doSomething()方法，main线程不断创建栈帧并入栈，导致栈的深度越来越大，最终导致栈溢出。
+*/
+public class StackSOF {
+    private int stackLength=1;
+    public void doSomething(){
+            stackLength++;
+            doSomething();
+    }
+    public static void main(String[] args) {
+        StackSOF stackSOF=new StackSOF();
+        try {
+            stackSOF.doSomething();
+        }catch (Throwable e){//注意捕获的是Throwable
+            System.out.println("栈深度："+stackSOF.stackLength);
+            throw e;
+        }
+    }
+}
+
+```
+
+报错信息：Exception in thread "Thread-0" java.lang.StackOverflowError 的异常。
+
+OutOfMemoryError：如果虚拟机在扩展栈时无法申请到足够的内存空间，则抛出 OutOfMemoryError。
+
+我们可以这样理解，虚拟机中可以供栈占用的空间≈可用物理内存 - 最大堆内存 - 最大方法区内存，比如一台机器内存为 4G，系统和其他应用占用 2G，虚拟机可用的物理内存为 2G，最大堆内存为 1G，最大方法区内存为 512M，那可供栈占有的内存大约就是 512M，假如我们设置每个线程栈的大小为 1M，那虚拟机中最多可以创建 512个线程，超过 512个线程再创建就没有空间可以给栈了，就报 OutOfMemoryError 异常了。
+
+
+```java
+
+/**
+* 设置每个线程的栈大小：-Xss2m
+* 运行时，不断创建新的线程（且每个线程持续执行），每个线程对一个一个栈，最终没有多余的空间来为新的线程分配，导致OutOfMemoryError
+*/
+public class StackOOM {
+    private static int threadNum = 0;
+    public void doSomething() {
+        try {
+            Thread.sleep(100000000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+    public static void main(String[] args) {
+        final StackOOM stackOOM = new StackOOM();
+        try {
+            while (true) {
+                threadNum++;
+                Thread thread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        stackOOM.doSomething();
+                    }
+                });
+                thread.start();
+            }
+        } catch (Throwable e) {
+            System.out.println("目前活动线程数量：" + threadNum);
+            throw e;
+        }
+    }
+}
+
+```
+
+报错信息：java.lang.OutOfMemoryError: unable to create new native thread
+
+会报 StackOverflow 异常，解决这种问题可以适当加大栈的深度（增加栈空间大小），也就是把 -Xss 的值设置大一些，但一般情况下是代码问题的可能性较大；在虚拟机产生线程时，无法为该线程申请栈空间了。
+
+会报 OutOfMemoryError 异常，解决这种问题可以适当减小栈的深度，也就是把 -Xss 的值设置小一些，每个线程占用的空间小了，总空间一定就能容纳更多的线程，但是操作系统对一个进程的线程数有限制，经验值在 3000~5000 左右。
+
+在 jdk1.5 之前 -Xss 默认是 256k，jdk1.5 之后默认是 1M，这个选项对系统硬性还是蛮大的，设置时要根据实际情况，谨慎操作
+
+3、方法区溢出
+
+由于在 jdk1.6 之前字符串常量池是存在于方法区中的，所以基于 jdk1.6 之前的虚拟机，可以通过不断产生不一致的字符串（同时要保证和 GC Roots 之间保证有可达路径）来模拟方法区的 OutOfMemoryError 异常；但方法区还存储加载的类信息，所以基于 jdk1.7 的虚拟机，可以通过动态不断创建大量的类来模拟方法区溢出。
+
+```java
+/**
+* 设置方法区最大、最小空间：-XX:PermSize=10m -XX:MaxPermSize=10m
+* 运行时，通过cglib不断创建JavaMethodAreaOOM的子类，方法区中类信息越来越多，最终没有可以为新的类分配的内存导致内存溢出
+*/
+public class JavaMethodAreaOOM {
+    public static void main(final String[] args){
+       try {
+           while (true){
+               Enhancer enhancer=new Enhancer();
+               enhancer.setSuperclass(JavaMethodAreaOOM.class);
+               enhancer.setUseCache(false);
+               enhancer.setCallback(new MethodInterceptor() {
+                   @Override
+                   public Object intercept(Object o, Method method, Object[] objects, MethodProxy methodProxy) throws Throwable {
+                       return methodProxy.invokeSuper(o,objects);
+                   }
+               });
+               enhancer.create();
+           }
+       }catch (Throwable t){
+           t.printStackTrace();
+       }
+    }
+}
+
+```
+
+报错信息：java.lang.OutOfMemoryError: PermGen space 的异常
+
+4、本机直接内存溢出
+
+本机直接内存（DirectMemory）并不是虚拟机运行时数据区的一部分，也不是 Java 虚拟机规范中定义的内存区域，但 Java 中用到 NIO 相关操作时（比如 ByteBuffer 的 allocteDirect 方法申请的是本机直接内存），也可能会出现内存溢出的异常。
+
+
+内存泄漏 举个例子把
+
+```java
+
+public class KeyLessEntry {
+
+  static class Key {
+    Integer id;
+
+    Key(Integer id) {
+      this.id = id;
+    }
+
+    @Override
+    public int hashCode() {
+      return id.hashCode();
+    }
+  }
+
+  public static void main(String[] args) {
+
+    Map m = new HashMap();
+    while (true) {
+      for (int i = 0; i < 10000; i++) {
+        if (!m.containsKey(new Key(i))) {
+          m.put(new Key(i), "Number:" + i);
+        }
+      }
+      System.out.println("m.size()=" + m.size());
+    }
+
+  }
+
+}
+
+```
+
+粗略一看, 可能觉得没什么问题, 因为这最多缓存 10000 个元素嘛! 但仔细审查就会发现, Key 这个类只重写了 hashCode() 方法, 却没有重写 equals() 方法, 于是就会一直往 HashMap 中添加更多的 Key。
+
+随着时间推移, “cached” 的对象会越来越多. 当泄漏的对象占满了所有的堆内存, GC 又清理不了, 就会抛出 java.lang.OutOfMemoryError:Java heap space 错误。
+
+解决办法很简单, 在 Key 类中恰当地实现 equals() 方法即可：
+
+```java
+
+@Override
+    public boolean equals(Object obj) {
+      boolean response = false;
+      if (obj instanceof Key) {
+        response = (((Key) obj).id).equals(this.id);
+      }
+      return response;
+    }
+
+```

@@ -218,6 +218,691 @@ Pause是C语言实现的进程，核心代码就是28行，有个无限循环for
 
 1、statefulset的使用，可以参考部署redis的[文章](https://zqmalyssa.github.io/strap/2019/10/12/redis-post.html)
 
+
+### kubernetes中的operator
+
+你是否曾经想过 SRE 团队是如何有效地成功管理复杂的应用？在 Kubernetes 生态系统中，Kubernetes Operator 可以给你答案
+
+Kubernetes Operator 这一概念是由 CoreOS 的工程师于 2016 年提出的，这是一种原生的方式来构建和驱动 Kubernetes 集群上的每一个应用，它需要特定领域的知识。它提供了一种一致的方法，通过与 Kubernetes API 的紧密合作，自动处理所有应用操作过程，而不需要任何人工干预。换句话说，Operator 是一种包装、运行和管理 Kubernetes 应用的方式。（是对应用的管理，应该是对有状态应用的管理）
+
+Kubernetes Operator 模式遵循 Kubernetes 的核心原则之一：控制理论（control theory）。在机器人和自动化领域，它是一种持续运行动态系统的机制。它依赖于一种快速调整工作负载需求的能力，进而能够尽可能准确地适应现有资源。其目标是开发一个具有必要逻辑的控制模型，以帮助应用程序或系统保持稳定。在 Kubernetes 世界中，这部分由 controller 处理。
+
+在循环中，Controller 是个特殊的软件，它可以对集群的变化做出响应，并执行适应动作。第一个 Kubernetes controller 是一个 kube-controller-manager。它被认为是所有 Operator 的前身，Operator 是后来建立的。
+
+简单来说，Controller Loop 是 Controller 动作的基础。想象一下，有一个非终止的进程（在 Kubernetes 中称为和解循环）在不断地发生（就是desired state和current state）
+
+这个过程至少观察一个 Kubernetes 对象，该对象包含有关所需状态的信息。比如：
+
+Deployment
+
+Services
+
+Secrets
+
+Ingress
+
+Config Maps
+
+这些对象由 JSON 或 YAML 中的 manifest 组成的配置文件定义。然后 controller 根据内置逻辑，通过 Kubernetes API 进行持续调整，模仿所需状态，直到当前状态变成所需状态。
+
+通过这种方式，Kubernetes 通过处理不断的更改来处理 Cloud Native 系统的动态性质。为达到预期状态而执行的修改实例包括：
+
+注意到节点宕机时，要求更换新的节点。
+
+检查是否需要复制 pods。
+
+如果需要，创建一个新的负载均衡器。
+
+综上，Operator 基于 Kubernetes 的资源和控制器概念之上构建，但同时又包含了应用程序特定的领域知识。创建Operator 的关键是CRD（自定义资源）的设计
+
+#### Kubernetes Operator 如何工作？
+
+Operator 是一个特定应用程序的 controller，它扩展了一个 Kubernetes API，替代运维工程师或 SRE 工程师来创建、配置和管理复杂的应用程序。在 Kubernetes 官方文档中对此有以下描述：
+
+Operator 是 Kubernetes 的软件拓展，它利用自定义资源来管理应用程序及其组件。Operator 遵循 Kubernetes 的原则，尤其遵循 control loop。（就是应用及其关联的任意组件）
+
+到目前为止，你已经了解 Operator 会利用观察 Kubernetes 对象的 controller。这些 controller 有点不同，因为它们正在追踪自定义对象，通常称为自定义资源（CR）。CR 是 Kubernetes API 的扩展，它提供了一个可以存储和检索结构化数据的地方——你的应用程序的期望状态。整个操作原理如下图所示：
+
+![operator]({{ "/assets/img/kubernetes/operator.png" | relative_url}})
+
+Operator 会持续跟踪与特定类型的自定义资源相关的集群事件。可以跟踪的关于这些自定义资源的事件类型有
+
+Add
+
+Update
+
+Delete
+
+当 Operator 接收任何信息时，它将采取行动将 Kubernetes 集群或外部系统调整到所需的状态，作为其在自定义 controller 中的和解循环（reconciliation loop）的一部分。
+
+
+`如何添加一个自定义资源`
+
+自定义资源通过添加对你的应用有帮助的新型对象来扩展 Kubernetes 功能。Kubernetes 提供了两种向集群添加自定义资源的方法：
+
+通过 API Aggregation 添加，这是一种高级方法，需要你建立自己的 API 服务器，但你有更多的控制权限。
+
+通过自定义资源定义（CRD）添加，一种不需要复杂编程知识就可以创建的简单方式，作为 Kubernetes API 服务器的扩展。（常用）
+
+自定义资源定义（CRD）:
+
+自定义资源定义（CRD）的出现已经有一段时间了，第一个主要的 API 规范是与 Kubernetes 1.16.0 一起发布的。下面的 manifest 介绍了一个例子：
+
+```html
+
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: application.stable.example.com
+spec:
+  group: stable.example.com
+  version: v1
+  scope: Namespaced
+  names:
+    plural: application
+    singular: applications
+    kind: Application
+    shortNames:
+    - app
+
+
+```
+
+这个 CRD 可以让你创建一个名为“Application”的 CR（我们将会在下一个部分使用它）。前两行定义了 apiVersion 和你要创建的对象种类。
+
+Metadata 描述了资源名称，但这里最重要的部分是“spec”字段。它让你可以指定组、版本以及可见性范围——命名空间或集群范围。
+
+然后，你可以用多种格式定义名称，并创建一个方便的缩写，让你执行命令 kubectl get app 来获取现有的 CR。
+
+自定义资源:
+
+以上 CRD 可以让你创建以下自定义资源的 manifest。
+
+```html
+
+apiVersion: stable.example.com/v1
+kind: Application
+metadata:
+  name: application-config
+spec:
+  image: container-registry-image:v1.0.0
+  domain: teamx.yoursaas.io
+  plan: premium
+
+
+```
+
+如你所见，在这里包含了运行特定情况下的应用程序所需的所有必要信息。这个自定义资源将被我们的 Operator 观察到——准确地说，是被 Operator 的自定义 controller 观察到。根据 controller 中的内置逻辑，将模仿所需的状态。它可以为我们的应用程序创建部署、服务和必要的 ConfigMaps。运行它，并在特定的域上通过 ingress 暴露它。这只是一个简单的用例，但你可以根据自己的需求对它进行任何设计。
+
+Operator 还可以配置在 Kubernetes 之外的资源。你可以在不离开 Kubernetes 平台的情况下控制外部路由器的配置或在云中创建数据库。
+
+`Kubernetes Operators：案例研究`
+
+为了对 Kubernetes Operator 有一个整体清晰的认识，我们来看看 Prometheus Operator，它是最早也是最流行的 Operator 之一。它简化了 Prometheus、Alertmanager 以及相关监控组件的部署和配置。
+
+Prometheus Operator 的核心功能是监控 Kubernetes API 服务器上指定对象的变化，并确保当前的 Prometheus 部署与这些对象相匹配。Operator 作用于以下自定义资源定义（CRD）：
+
+Prometheus： 定义了所需 Prometheus 部署
+
+Alertmanager： 定义了所需的 Alertmanager 部署
+
+ServiceMonitor： 它声明性地指定了应该如何监控 Kubernetes 服务的组。Operator 会根据 API 服务器中对象的当前状态自动生成 Prometheus scrape 配置。
+
+PodMonitor： 声明性地指定了应如何监控一组 pod。Operator 会根据 API 服务器中对象的当前状态自动生成 Prometheus scrape 配置。
+
+PrometheusRule： 定义了一组所需的 Prometheus 告警和/或记录规则。Operator 会生成一个规则文件，可供 Prometheus 实例使用。
+
+所以，Prometheus Operator 会自动检测 Kubernetes API 服务器中对上述任何对象的更改，并确保匹配的部署和配置保持同步。
+
+#### operator的实践
+
+Operator Framework 同样也是 CoreOS 开源的一个用于快速开发 Operator 的工具包，该框架包含两个主要的部分：
+
+Operator SDK: 无需了解复杂的 Kubernetes API 特性，即可让你根据你自己的专业知识构建一个 Operator 应用。
+
+Operator Lifecycle Manager OLM: 帮助你安装、更新和管理跨集群的运行中的所有 Operator（以及他们的相关服务）
+
+大致的workflow是这样
+
+Operator SDK 提供以下工作流来开发一个新的 Operator：
+
+1. 使用 SDK 创建一个新的 Operator 项目
+2. 通过添加自定义资源（CRD）定义新的资源 API
+3. 指定使用 SDK API 来 watch 的资源
+4. 定义 Operator 的协调（reconcile）逻辑
+5. 使用 Operator SDK 构建并生成 Operator 部署清单文件
+
+我们平时在部署一个简单的 Webserver 到 Kubernetes 集群中的时候，都需要先编写一个 Deployment 的控制器，然后创建一个 Service 对象，通过 Pod 的 label 标签进行关联，最后通过 Ingress 或者 type=NodePort 类型的 Service 来暴露服务，每次都需要这样操作，是不是略显麻烦，我们就可以创建一个自定义的资源对象，通过我们的 CRD 来描述我们要部署的应用信息，比如镜像、服务端口、环境变量等等，然后创建我们的自定义类型的资源对象的时候，通过控制器去创建对应的 Deployment 和 Service，是不是就方便很多了，相当于我们用一个资源清单去描述了 Deployment 和 Service 要做的两件事情。
+
+这里我们将创建一个名为 AppService 的 CRD 资源对象，然后定义如下的资源清单进行应用部署
+
+```html
+
+apiVersion: app.example.com/v1
+kind: AppService
+metadata:
+  name: nginx-app
+spec:
+  size: 2
+  image: nginx:1.7.9
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30002
+
+```
+
+注意这里没有之前的deployment，service等一堆yaml的定义了
+
+开发的环境要求：
+
+要开发 Operator 自然 Kubernetes 集群是少不了的，还需要 Golang 的环境，这里的安装就不多说了，然后还需要一个 Go 语言的依赖管理工具包：dep，由于 Operator SDK 是使用的 dep 该工具包，所以需要我们提前安装好，可以查看资料：https://github.com/golang/dep，另外一个需要说明的是，由于 dep 去安装的时候需要去谷歌的网站拉取很多代码，所以正常情况下的话是会失败的，需要做什么工作大家应该清楚吧？要科学。
+
+安装 operator-sdk
+
+```html
+
+mac的
+
+$ brew install operator-sdk
+......
+$ operator-sdk version
+operator-sdk version: v0.7.0
+$ go version
+go version go1.11.4 darwin/amd64
+
+```
+
+环境准备好了，接下来就可以使用 operator-sdk 直接创建一个新的项目了，命令格式为： operator-sdk new
+
+按照上面我们预先定义的 CRD 资源清单，我们这里可以这样创建：
+
+```html
+
+#创建项目目录
+$ mkdir -p operator-learning  
+# 设置项目目录为 GOPATH 路径
+$ cd operator-learning && export GOPATH=$PWD  
+$ mkdir -p $GOPATH/src/github.com/cnych
+$ cd $GOPATH/src/github.com/cnych
+# 使用 sdk 创建一个名为 opdemo 的 operator 项目
+$ operator-sdk new opdemo
+......
+# 该过程需要科学上网，需要花费很长时间，请耐心等待
+......
+$ cd opdemo && tree -L 2
+.
+├── Gopkg.lock
+├── Gopkg.toml
+├── build
+│   ├── Dockerfile
+│   ├── _output
+│   └── bin
+├── cmd
+│   └── manager
+├── deploy
+│   ├── crds
+│   ├── operator.yaml
+│   ├── role.yaml
+│   ├── role_binding.yaml
+│   └── service_account.yaml
+├── pkg
+│   ├── apis
+│   └── controller
+├── vendor
+│   ├── cloud.google.com
+│   ├── contrib.go.opencensus.io
+│   ├── github.com
+│   ├── go.opencensus.io
+│   ├── go.uber.org
+│   ├── golang.org
+│   ├── google.golang.org
+│   ├── gopkg.in
+│   ├── k8s.io
+│   └── sigs.k8s.io
+└── version
+	 └── version.go
+
+23 directories, 8 files
+
+```
+
+到这里一个全新的 Operator 项目就新建完成了，说下项目的结构：
+
+
+使用operator-sdk new命令创建新的 Operator 项目后，项目目录就包含了很多生成的文件夹和文件。
+
+Gopkg.toml Gopkg.lock — Go Dep 清单，用来描述当前 Operator 的依赖包。
+
+cmd - 包含 main.go 文件，使用 operator-sdk API 初始化和启动当前 Operator 的入口。
+
+deploy - 包含一组用于在 Kubernetes 集群上进行部署的通用的 Kubernetes 资源清单文件。
+
+pkg/apis - 包含定义的 API 和自定义资源（CRD）的目录树，这些文件允许 sdk 为 CRD 生成代码并注册对应的类型，以便正确解码自定义资源对象。
+pkg/controller - 用于编写所有的操作业务逻辑的地方
+
+vendor - golang vendor 文件夹，其中包含满足当前项目的所有外部依赖包，通过 go dep 管理该目录。
+
+`我们主要需要编写的是pkg目录下面的 api 定义以及对应的 controller 实现。`
+
+`添加API`
+
+接下来为我们的自定义资源添加一个新的 API，按照上面我们预定义的资源清单文件，在 Operator 相关根目录下面执行如下命令
+
+```html
+
+operator-sdk add api --api-version=app.example.com/v1 --kind=AppService
+
+```
+
+`添加控制器`
+
+上面我们添加自定义的 API，接下来可以添加对应的自定义 API 的具体实现 Controller，同样在项目根目录下面执行如下命令
+
+```html
+
+operator-sdk add controller --api-version=app.example.com/v1 --kind=AppService
+
+```
+
+这个时候pkg中的apis和controller就都有所变化了，增加了文件，相当于脚手架搭建完成
+
+`自定义API`
+
+打开源文件pkg/apis/app/v1/appservice_types.go，需要我们根据我们的需求去自定义结构体 AppServiceSpec，我们最上面预定义的资源清单中就有 size、image、ports 这些属性，所有我们需要用到的属性都需要在这个结构体中进行定义：
+
+```html
+
+type AppServiceSpec struct {
+	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	Size  	  *int32                      `json:"size"`
+	Image     string                      `json:"image"`
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	Envs      []corev1.EnvVar             `json:"envs,omitempty"`
+	Ports     []corev1.ServicePort        `json:"ports,omitempty"`
+}
+
+import (
+    appsv1 "k8s.io/api/apps/v1"
+    corev1 "k8s.io/api/core/v1"
+    appv1 "github.com/cnych/opdemo/pkg/apis/app/v1"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+```
+
+这里的 resources、envs、ports 的定义都是直接引用的"k8s.io/api/core/v1"中定义的结构体，而且需要注意的是我们这里使用的是ServicePort，而不是像传统的 Pod 中定义的 ContanerPort，这是因为我们的资源清单中不仅要描述容器的 Port，还要描述 Service 的 Port。
+
+然后一个比较重要的结构体AppServiceStatus用来描述资源的状态，当然我们可以根据需要去自定义状态的描述，我这里就偷懒直接使用 Deployment 的状态了：
+
+```html
+
+type AppServiceStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
+	appsv1.DeploymentStatus `json:",inline"`
+}
+
+```
+
+定义完成后，在项目根目录下面执行如下命令：
+
+```html
+
+$ operator-sdk generate k8s
+
+```
+
+该命令是用来根据我们自定义的 API 描述来自动生成一些代码，目录pkg/apis/app/v1/下面以zz_generated开头的文件就是自动生成的代码，里面的内容并不需要我们去手动编写。
+
+这样我们就算完成了对自定义资源对象的 API 的声明。
+
+`实现业务逻辑`
+
+上面 API 描述声明完成了，接下来就需要我们来进行具体的业务逻辑实现了，编写具体的 controller 实现，打开源文件pkg/controller/appservice/appservice_controller.go，需要我们去更改的地方也不是很多，核心的就是Reconcile方法，该方法就是去不断的 watch 资源的状态，然后根据状态的不同去实现各种操作逻辑，核心代码如下：
+
+```html
+
+func (r *ReconcileAppService) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger.Info("Reconciling AppService")
+
+	// Fetch the AppService instance
+	instance := &appv1.AppService{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+
+	if instance.DeletionTimestamp != nil {
+		return reconcile.Result{}, err
+	}
+
+	// 如果不存在，则创建关联资源
+	// 如果存在，判断是否需要更新
+	//   如果需要更新，则直接更新
+	//   如果不需要更新，则正常返回
+
+	deploy := &appsv1.Deployment{}
+	if err := r.client.Get(context.TODO(), request.NamespacedName, deploy); err != nil && errors.IsNotFound(err) {
+		// 创建关联资源
+		// 1. 创建 Deploy
+		deploy := resources.NewDeploy(instance)
+		if err := r.client.Create(context.TODO(), deploy); err != nil {
+			return reconcile.Result{}, err
+		}
+		// 2. 创建 Service
+		service := resources.NewService(instance)
+		if err := r.client.Create(context.TODO(), service); err != nil {
+			return reconcile.Result{}, err
+		}
+		// 3. 关联 Annotations
+		data, _ := json.Marshal(instance.Spec)
+		if instance.Annotations != nil {
+			instance.Annotations["spec"] = string(data)
+		} else {
+			instance.Annotations = map[string]string{"spec": string(data)}
+		}
+
+		if err := r.client.Update(context.TODO(), instance); err != nil {
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, nil
+	}
+
+	oldspec := appv1.AppServiceSpec{}
+	if err := json.Unmarshal([]byte(instance.Annotations["spec"]), oldspec); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if !reflect.DeepEqual(instance.Spec, oldspec) {
+		// 更新关联资源
+		newDeploy := resources.NewDeploy(instance)
+		oldDeploy := &appsv1.Deployment{}
+		if err := r.client.Get(context.TODO(), request.NamespacedName, oldDeploy); err != nil {
+			return reconcile.Result{}, err
+		}
+		oldDeploy.Spec = newDeploy.Spec
+		if err := r.client.Update(context.TODO(), oldDeploy); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		newService := resources.NewService(instance)
+		oldService := &corev1.Service{}
+		if err := r.client.Get(context.TODO(), request.NamespacedName, oldService); err != nil {
+			return reconcile.Result{}, err
+		}
+		oldService.Spec = newService.Spec
+		if err := r.client.Update(context.TODO(), oldService); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
+	}
+
+	return reconcile.Result{}, nil
+
+}
+
+```
+
+上面就是业务逻辑实现的核心代码，逻辑很简单，就是去判断资源是否存在，不存在，则直接创建新的资源，创建新的资源除了需要创建 Deployment 资源外，还需要创建 Service 资源对象，因为这就是我们的需求，当然你还可以自己去扩展，比如在创建一个 Ingress 对象。更新也是一样的，去对比新旧对象的声明是否一致，不一致则需要更新，同样的，两种资源都需要更新的。
+
+另外两个核心的方法就是上面的resources.NewDeploy(instance)和resources.NewService(instance)方法，这两个方法实现逻辑也很简单，就是根据 CRD 中的声明去填充 Deployment 和 Service 资源对象的 Spec 对象即可。
+
+```html
+
+func NewDeploy(app *appv1.AppService) *appsv1.Deployment {
+	labels := map[string]string{"app": app.Name}
+	selector := &metav1.LabelSelector{MatchLabels: labels}
+	return &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      app.Name,
+			Namespace: app.Namespace,
+
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(app, schema.GroupVersionKind{
+					Group: v1.SchemeGroupVersion.Group,
+					Version: v1.SchemeGroupVersion.Version,
+					Kind: "AppService",
+				}),
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: app.Spec.Size,
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: newContainers(app),
+				},
+			},
+			Selector: selector,
+		},
+	}
+}
+
+func newContainers(app *v1.AppService) []corev1.Container {
+	containerPorts := []corev1.ContainerPort{}
+	for _, svcPort := range app.Spec.Ports {
+		cport := corev1.ContainerPort{}
+		cport.ContainerPort = svcPort.TargetPort.IntVal
+		containerPorts = append(containerPorts, cport)
+	}
+	return []corev1.Container{
+		{
+			Name: app.Name,
+			Image: app.Spec.Image,
+			Resources: app.Spec.Resources,
+			Ports: containerPorts,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Env: app.Spec.Envs,
+		},
+	}
+}
+```
+
+```html
+
+func NewService(app *v1.AppService) *corev1.Service {
+	return &corev1.Service {
+		TypeMeta: metav1.TypeMeta {
+			Kind: "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: app.Name,
+			Namespace: app.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(app, schema.GroupVersionKind{
+					Group: v1.SchemeGroupVersion.Group,
+					Version: v1.SchemeGroupVersion.Version,
+					Kind: "AppService",
+				}),
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeNodePort,
+			Ports: app.Spec.Ports,
+			Selector: map[string]string{
+				"app": app.Name,
+			},
+		},
+	}
+}
+
+```
+
+这样我们就实现了 AppService 这种资源对象的业务逻辑。
+
+`调试`
+
+如果我们本地有一个可以访问的 Kubernetes 集群，我们也可以直接进行调试，在本地用户~/.kube/config文件中配置集群访问信息，下面的信息表明可以访问 Kubernetes 集群：
+
+首先，在集群中安装 CRD 对象：
+
+```html
+
+$ kubectl create -f deploy/crds/app_v1_appservice_crd.yaml
+customresourcedefinition "appservices.app.example.com" created
+$ kubectl get crd
+NAME                                   AGE
+appservices.app.example.com            <invalid>
+......
+
+```
+
+当我们通过kubectl get crd命令获取到我们定义的 CRD 资源对象，就证明我们定义的 CRD 安装成功了。其实现在只是 CRD 的这个声明安装成功了，但是我们这个 CRD 的具体业务逻辑实现方式还在我们本地，并没有部署到集群之中，我们可以通过下面的命令来在本地项目中启动 Operator 的调试：
+
+```html
+$ operator-sdk up local                                                     
+INFO[0000] Running the operator locally.                
+INFO[0000] Using namespace default.
+
+```
+
+上面的命令会在本地运行 Operator 应用，通过~/.kube/config去关联集群信息，现在我们去添加一个 AppService 类型的资源然后观察本地 Operator 的变化情况，资源清单文件就是我们上面预定义的（deploy/crds/app_v1_appservice_cr.yaml，注意是CR哈，之前create是CRD）
+
+```html
+apiVersion: app.example.com/v1
+kind: AppService
+metadata:
+  name: nginx-app
+spec:
+  size: 2
+  image: nginx:1.7.9
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30002
+
+#直接创建这个资源对象
+
+$ kubectl create -f deploy/crds/app_v1_appservice_cr.yaml
+appservice "nginx-app" created		
+
+
+```
+
+我们可以看到我们的应用创建成功了，这个时候查看 Operator 的调试窗口会有如下的信息出现：
+
+```html
+
+......
+{"level":"info","ts":1559207416.670523,"logger":"controller_appservice","msg":"Reconciling AppService","Request.Namespace":"default","Request.Name":"nginx-app"}
+{"level":"info","ts":1559207417.004226,"logger":"controller_appservice","msg":"Reconciling AppService","Request.Namespace":"default","Request.Name":"nginx-app"}
+{"level":"info","ts":1559207417.004331,"logger":"controller_appservice","msg":"Reconciling AppService","Request.Namespace":"default","Request.Name":"nginx-app"}
+{"level":"info","ts":1559207418.33779,"logger":"controller_appservice","msg":"Reconciling AppService","Request.Namespace":"default","Request.Name":"nginx-app"}
+{"level":"info","ts":1559207418.951193,"logger":"controller_appservice","msg":"Reconciling AppService","Request.Namespace":"default","Request.Name":"nginx-app"}
+......
+
+```
+
+然后我们可以去查看集群中是否有符合我们预期的资源出现：
+
+```html
+
+$ kubectl get AppService
+NAME        AGE
+nginx-app   <invalid>
+$ kubectl get deploy
+NAME                     DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+nginx-app                2         2         2            2           <invalid>
+$ kubectl get svc
+NAME         TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)        AGE
+kubernetes   ClusterIP   10.96.0.1      <none>        443/TCP        76d
+nginx-app    NodePort    10.108.227.5   <none>        80:30002/TCP   <invalid>
+$ kubectl get pods
+NAME                                      READY     STATUS    RESTARTS   AGE
+nginx-app-76b6449498-2j82j                1/1       Running   0          <invalid>
+nginx-app-76b6449498-m4h58                1/1       Running   0          <invalid>
+
+```
+
+看到了吧，我们定义了两个副本（size=2），这里就出现了两个 Pod，还有一个 NodePort=30002 的 Service 对象，我们可以通过该端口去访问下应用：
+
+清理：
+
+```html
+$ kubectl delete -f deploy/crds/app_v1_appservice_crd.yaml
+$ kubectl delete -f deploy/crds/app_v1_appservice_cr.yaml
+
+```
+
+`部署`
+
+执行下面的命令构建 Operator 应用打包成 Docker 镜像：
+
+```html
+
+$ operator-sdk build cnych/opdemo                         
+INFO[0002] Building Docker image cnych/opdemo           
+Sending build context to Docker daemon  400.7MB
+Step 1/7 : FROM registry.access.redhat.com/ubi7-dev-preview/ubi-minimal:7.6
+......
+Successfully built a8cde91be6ab
+Successfully tagged cnych/opdemo:latest
+INFO[0053] Operator build complete.
+
+$ docker push cnych/opdemo
+
+#镜像推送成功后，使用上面的镜像地址更新 Operator 的资源清单：
+
+$ sed -i 's|REPLACE_IMAGE|cnych/opdemo|g' deploy/operator.yaml
+# 如果你使用的是 Mac 系统，使用下面的命令
+$ sed -i "" 's|REPLACE_IMAGE|cnych/opdemo|g' deploy/operator.yaml
+
+现在 Operator 的资源清单文件准备好了，然后创建对应的 RBAC 的对象
+
+# Setup Service Account
+$ kubectl create -f deploy/service_account.yaml
+# Setup RBAC
+$ kubectl create -f deploy/role.yaml
+$ kubectl create -f deploy/role_binding.yaml
+
+权限相关声明已经完成，接下来安装 CRD 和 Operator：
+
+# Setup the CRD
+$ kubectl apply -f deploy/crds/app_v1_appservice_crd.yaml
+$ kubectl get crd
+NAME                                   CREATED AT
+appservices.app.example.com            2019-05-30T17:03:32Z
+......
+# Deploy the Operator
+$ kubectl create -f deploy/operator.yaml
+deployment.apps/opdemo created
+$ kubectl get pods
+NAME                                      READY   STATUS    RESTARTS   AGE
+opdemo-64db96d575-9vtq6                   1/1     Running   0          2m2s
+
+```
+到这里我们的 CRD 和 Operator 实现都已经安装成功了。
+
+现在我们再来部署我们的 AppService 资源清单文件，现在的业务逻辑就会在上面的opdemo-64db96d575-9vtq6的 Pod 中去处理了
+
+```html
+
+$ kubectl create -f deploy/crds/app_v1_appservice_cr.yaml
+
+```
+
+Operator SDK 为我们创建了一个快速启动的代码和相关配置，如果我们要开始处理相关的逻辑，我们可以在项目中搜索TODO(user)这个注释来实现我们自己的逻辑，比如在我的 VSCode 环境中，看上去是这样的：
+
 ### kubernetes的安装
 
 这边记录一次kubernetes1.17.0和cilium1.7.4的结合部署过程，使用kubeadm去部署
@@ -361,6 +1046,87 @@ ip link delete flannel.1
 到这里，k8加cilium的集群应该是安装完毕了
 
 ```html
+
+//这边提一个关于证书的运维的问题，kubeadm默认生成的ca证书有效期是10年，其他证书（如etcd证书、apiserver证书等）有效期均为1年。通过以下命令查看：
+
+openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -text |grep ' Not '
+
+Not Before: Jun  5 09:17:47 2020 GMT
+Not After : Jun  5 09:17:48 2021 GMT
+
+报错信息如下：Unable to connect to the server: x509: certificate has expired or is not yet valid
+
+在kubernetes 1.15版本后提供了强大的证书管理功能
+
+kubeadm alpha certs renew all // 全局的更新，没报错就成功
+
+kubeadm alpha certs renew all --config /root/config.yaml // 保存配置的，后续可以配合kubeadm alpha certs check-expiration --config /root/config.yaml查看过期，否则就一个个查看
+
+#apiserver证书有效期
+openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -text |grep ' Not '
+
+#apiserver-kubelet-client证书有效期
+openssl x509 -in /etc/kubernetes/pki/apiserver-kubelet-client.crt -noout -text |grep ' Not '
+
+#front-proxy-client证书有效期
+openssl x509 -in /etc/kubernetes/pki/front-proxy-client.crt -noout -text |grep ' Not '
+
+#apiserver-etcd-client证书有效期
+openssl x509 -in /etc/kubernetes/pki/apiserver-etcd-client.crt -noout -text |grep ' Not '
+
+#这里我们可以看到ca证书都是10年
+openssl x509 -in /etc/kubernetes/pki/ca.crt -noout -text |grep ' Not '
+
+#这里我们可以看到ca证书都是10年
+openssl x509 -in /etc/kubernetes/pki/front-proxy-ca.crt -noout -text |grep ' Not '
+
+全局的更新失败可以一个个更新，如下
+#续订kubeconfig文件中嵌入的证书，供管理员和kubeadm自身使用。
+kubeadm alpha certs renew admin.conf
+#续订apiserver用于连接kubelet的证书。
+kubeadm alpha certs renew apiserver-kubelet-client --config /root/config.yaml
+#续订用于提供Kubernetes API的证书。
+kubeadm alpha certs renew apiserver --config /root/config.yaml
+#续订kubeconfig文件中嵌入的证书，以供控制器管理器（controller manager）使用。
+kubeadm alpha certs renew controller-manager.conf --config /root/config.yaml
+#为前端代理客户端续订证书。
+kubeadm alpha certs renew front-proxy-client --config /root/config.yaml
+#续订kubeconfig文件中嵌入的证书，以供调度管理器使用。
+kubeadm alpha certs renew scheduler.conf --config /root/config.yaml
+
+注意，要像安装的时候做如下操作后生效
+
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config   -- y
+chown $(id -u):$(id -g) $HOME/.kube/config
+
+就可以使用kubectl get pod
+
+#然后复制到其他控制节点，注意是master节点，node节点只要把最新的$HOME/.kube/config弄过去就行了
+
+scp /etc/kubernetes/pki/* k8s-master02:/etc/kubernetes/pki/
+scp /etc/kubernetes/pki/* k8s-master03:/etc/kubernetes/pki/
+
+scp /etc/kubernetes/scheduler.conf k8s-master02:/etc/kubernetes/scheduler.conf
+scp /etc/kubernetes/scheduler.conf k8s-master03:/etc/kubernetes/scheduler.conf
+
+scp /etc/kubernetes/controller-manager.conf k8s-master02:/etc/kubernetes/controller-manager.conf
+scp /etc/kubernetes/controller-manager.conf k8s-master03:/etc/kubernetes/controller-manager.conf
+
+# 复制config至其它控制节点
+scp $HOME/.kube/config k8s-master02:/root/.kube/config
+scp $HOME/.kube/config k8s-master03:/root/.kube/config
+
+
+正常更新证书以后，官方建议是重启管理节点，然后即可恢复正常。
+
+另外因为kubelet客户端证书也已经更新，所以建议重启每台管理节点上的kubelet服务。
+
+可以参考[文档](https://kubernetes.io/zh/docs/reference/setup-tools/kubeadm/kubeadm-alpha/)
+
+
+话说Kuernetes v1.18已经支持证书自动轮换更新了，详细参考：
+
+[地址](https://kubernetes.io/zh/docs/tasks/tls/certificate-rotation/)
 
 ```
 

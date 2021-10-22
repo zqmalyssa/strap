@@ -116,6 +116,56 @@ b.XxxAware接口
   - BeanNameAware
 
 
+-------------------------类似的一次debug--------------------------------
+
+
+工程测试环境下老是报 NoClassDefFoundError（运行时），是okhttp3的，还有一个ClassNotFoundException（编译时就能发现的，注意区别），NoClassDefFoundError是rootcase，第一层是InfluxDbAutoConfiguration自动装配的失败
+
+因为他需要okhttp3，那么首先，@SpringBootTest执行了自动装配，它扫描了上一层的@SpringBootApplication，执行相应的操作，装配的条件是@ConditionalOnClass(InfluxDB.class)，说明有InfluxDB，
+
+项目比较简单，哪里用到了InfluxDB呢，看项目引用的common，common里有
+
+<dependency>
+            <groupId>xxxx.tc.xconfig</groupId>
+            <artifactId>xconfig-client</artifactId>
+            <exclusions>
+                <exclusion>
+                    <artifactId>hibernate-validator</artifactId>
+                    <groupId>org.hibernate</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                    <groupId>org.slf4j</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+这里面引了
+
+xxxxwall-sdk（去dependency里面搜一下，查pom），它的pom如下
+
+<dependency>
+            <groupId>org.influxdb</groupId>
+            <artifactId>influxdb-java</artifactId>
+            <version>2.15</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.squareup.okio</groupId>
+                    <artifactId>okio</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.squareup.okhttp3</groupId>
+                    <artifactId>okhttp</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+
+有influxdb-java，但是排除了okhttp？？这个就是我们有InfluxDB类，但是没有okhttp包，这？？
+
+xconfig-client引自哪里，版本号是1.100.37，看着是继承过来的，继承的哪里呢。目前没找到上推的方法，应该是framexxx-bom中的一个
+
+
 ### Springboot的起步依赖
 
 在很久以前，依赖是怎么管理的？
@@ -276,3 +326,7 @@ ApplicationContext：应用上下文类，其主要继承了beanFactory(bean的�
 6、接下来的refreshContext(context)方法(初始化方法如下)将是实现spring-boot-starter-*(mybatis、redis等)自动化配置的关键，包括spring.factories的加载，bean的实例化等核心工作
 
 配置结束后，Springboot做了一些基本的收尾工作，返回了应用环境上下文。回顾整体流程，Springboot的启动，主要创建了配置环境(environment)、事件监听(listeners)、应用上下文(applicationContext)，并基于以上条件，在容器中开始实例化我们需要的Bean，至此，通过SpringBoot启动的程序已经构造完成
+
+### Springboot的RestTemplate
+
+RestTemplate在什么情况下抛异常，在4XX 和 5XX 的情况下会抛异常，3XX 和 2XX 是不会的
