@@ -381,3 +381,146 @@ reduceByKey是用来将key分组后，执行我们传入的函数。
 同一个key进去HashPartitioner得到的分区id是一样的，这样进行计算前后同一个key得到的分区都一样，父RDD的分区就只被子RDD的一个分区依赖，就不需要移动数据。
 
 所以join、reduceByKey在分区器是HashPartitioner时是窄依赖。
+
+
+`JavaRDD与JavaPairRDD的互相转换`
+
+JavaRDD => JavaPairRDD: 通过mapToPair函数
+JavaPairRDD => JavaRDD: 通过map函数转换
+
+[RDD转换](https://blog.csdn.net/hellozhxy/article/details/82344515)
+
+JavaPair的输出样式：
+
+```html
+
+(null,Hello World)
+(null,Hello World)
+(null,Hello World)
+(null,Hello World)
+(null,Hello World)
+(null,Hello World)
+(null,Hello World)
+(null,Hello World)
+(null,Hello World)
+(null,Hello World)
+
+```
+
+
+`查看RDD中的内容`
+
+```java
+
+rdd.collect().forEach(System.out::println);
+// 取前10个
+rdd.take(10).forEach(System.out::println);
+
+
+```
+
+
+#### Spark Streaming
+
+Spark streaming是Spark核心API的一个扩展，它对实时流式数据的处理具有可扩展性、高吞吐量、可容错性等特点。我们可以从kafka、flume、Twitter、 ZeroMQ、Kinesis等源获取数据，也可以通过由 高阶函数map、reduce、join、window等组成的复杂算法计算出数据。最后，处理后的数据可以推送到文件系统、数据库、实时仪表盘中
+
+Spark Streaming支持一个高层的抽象，叫做离散流(discretized stream)或者DStream，它代表连续的数据流。DStream既可以利用从Kafka, Flume和Kinesis等源获取的输入数据流创建，也可以 在其他DStream的基础上通过高阶函数获得。在内部，DStream是由一系列RDDs组成。
+
+
+#### Spark SQL
+
+Spark SQL是Spark用来处理结构化数据的一个模块，它提供了两个编程抽象分别叫做DataFrame和DataSet，它们用于作为分布式SQL查询引擎。从下图可以查看RDD、DataFrames与DataSet的关系。
+
+DataSets里面包含了 RDDs 和 DataFrames
+
+我们已经学习了Hive，它是将Hive SQL转换成MapReduce然后提交到集群上执行，大大简化了编写MapReduce的程序的复杂性，由于MapReduce这种计算模型执行效率比较慢。所以Spark SQL的应运而生，它是将Spark SQL转换成RDD，然后提交到集群执行，执行效率非常快！所以我们类比的理解：Hive---SQL-->MapReduce，Spark SQL---SQL-->RDD。都是一种解析传统SQL到大数据运算模型的引擎，属于数据分析的范围。
+
+首先，最简单的理解我们可以认为DataFrame就是Spark中的数据表（类比传统数据库），DataFrame的结构如下：
+
+DataFrame（表）= Schema（表结构） + Data（表数据）
+
+总结：DataFrame（表）是Spark SQL对结构化数据的抽象。可以将DataFrame看做RDD。
+
+DataFrame是组织成命名列的数据集。它在概念上等同于关系数据库中的表，但在底层具有更丰富的优化。DataFrames可以从各种来源构建，
+
+例如：
+
+结构化数据文件(JSON)
+外部数据库或现有RDDs
+
+DataFrame API支持的语言有Scala，Java，Python和R。
+
+从上图可以看出，DataFrame相比RDD多了数据的结构信息，即schema。RDD是分布式的 Java对象的集合。DataFrame是分布式的Row对象的集合。DataFrame除了提供了比RDD更丰富的算子以外，更重要的特点是提升执行效率、减少数据读取以及执行计划的优化。
+
+DataSet
+
+Dataset是数据的分布式集合。Dataset是在Spark 1.6中添加的一个新接口，是DataFrame之上更高一级的抽象。它提供了RDD的优点（强类型化）以及Spark SQL优化后的执行引擎的优点。一个Dataset 可以从JVM对象构造，然后使用函数转换（map， flatMap，filter等）去操作。 Dataset API 支持Scala和Java。 Python不支持Dataset API。
+
+Apache Spark 2.0引入了SparkSession，其为用户提供了一个统一的切入点来使用Spark的各项功能，并且允许用户通过它调用DataFrame和Dataset相关API来编写Spark程序。最重要的是，它减少了用户需要了解的一些概念，使得我们可以很容易地与Spark交互。
+在2.0版本之前，与Spark交互之前必须先创建SparkConf和SparkContext。然而在Spark 2.0中，我们可以通过SparkSession来实现同样的功能，而不需要显式地创建SparkConf, SparkContext 以及 SQLContext，因为这些对象已经封装在SparkSession中。
+
+`这边再详细说下RDD->DataFrame->DataSet`
+
+RDD的限制
+
+1、没有内置的优化引擎
+当对结构化的数据进行处理时，RDD没有使用Spark的高级优化器，比如catalyst优化器和Tungsten执行引擎。
+2、处理结构化的数据
+不像Dataframe或者Dataset，RDD不会主动推测出数据的schema，而是需要用户在代码里指示。
+
+DataFrame
+
+Spark从1.3版本开始引入Dataframe，它克服了RDD的最主要的挑战
+
+主要描述：Dataframe是一个分布式的数据collection，而且将数据按照列名进行组织。在概念上它与关系型的数据库的表或者R/Python语言中的DataFrame类似。与之一起提供的还有，Spark引入了catalyst优化器，它可以优化查询。
+
+DataFrame的限制
+
+没有编译阶段的类型检查：
+不能在编译时刻对安全性做出检查，而且限制了用户对于未知结构的数据进行操作。比如下面代码在编译时没有错误，但是在执行时会出现异常：
+
+```java
+
+case class Person(name: String, age :Int)
+val dataframe = sqlContect.read.json("people.json")
+dataframe.filter("salary > 10000").show
+
+=> throws Exception : cannot resolve 'salary' given input age, name
+
+```
+
+不能保留类对象的结构：
+一旦把一个类结构的对象转成了Dataframe，就不能转回去了。下面这个栗子就是指出了：
+
+```java
+
+case class Person(name: String, age :Int)
+val personRDD = sc.makeRDD(Seq(Person("A",10), Person("B",20)))
+val personDF = sqlContect.createDataframe(personRDD)
+personDF.rdd // returns RDD[ROW], does not return RDD[Person]
+
+```
+
+DataSet
+
+主要描述：Dataset API是对DataFrame的一个扩展，使得可以支持类型安全的检查，并且对类结构的对象支持程序接口。它是强类型的，不可变collection，并映射成一个相关的schema。
+Dataset API的核心是一个被称为Encoder的概念。它是负责对JVM的对象以及表格化的表达（tabular representation）之间的相互转化。
+表格化的表达在存储时使用了Spark内置的Tungsten二进制形式，允许对序列化数据操作并改进了内存使用。在Spark 1.6版本之后，支持自动化生成Encoder，可以对广泛的primitive类型（比如String，Integer，Long等）、Scala的case class以及Java Bean自动生成对应的Encoder。
+
+DataSet的特性
+
+1、支持RDD和Dataframe的优点：
+包括RDD的类型安全检查，Dataframe的关系型模型，查询优化，Tungsten执行，排序和shuffling。
+2、Encoder：
+通过使用Encoder，用户可以轻松转换JVM对象到一个Dataset，允许用户在结构化和非结构化的数据操作。
+3、编程语言：
+Scala和Java
+4、类型安全检查：
+提供编译阶段的安全类型检查。比如下面这个栗子
+5、相互转换：
+Dataset可以让用户轻松从RDD和Dataframe转换到Dataset不需要额外太多代码。
+
+DataSet的限制
+
+需要把类型转成String：
+Querying the data from datasets currently requires us to specify the fields in the class as a string. Once we have queried the data, we are forced to cast column to the required data type. On the other hand, if we use map operation on Datasets, it will not use Catalyst optimizer.

@@ -400,6 +400,148 @@ CPU密集型的任务配置尽可能少的线程数量：
 
 上面例子本机输出是12，这边对应的也是12
 
+
+这边也需要讲一些实际使用的例子：
+
+比如ScheduledThreadPoolExecutor，注意下面的注释
+
+```java
+
+package com.qiming.testkafka.schedulePool;
+
+import java.time.LocalDateTime;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Created by qmzhang on 2022/03/03
+ */
+public class MyThread implements Runnable {
+
+    private int num;
+
+    public MyThread(int num) {
+        this.num = num;
+    }
+
+    @Override public void run() {
+        int sleep = RandomNum.randomNumbers(2,5, 1).get(0);
+        try {
+            TimeUnit.SECONDS.sleep(sleep);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println(Thread.currentThread().getName() + "进来了." + "跑的任务是 " + num + " 执行时间是 " + sleep + " 当前时间是 " + LocalDateTime.now());
+    }
+}
+
+
+package com.qiming.testkafka.schedulePool;
+
+import java.time.LocalDateTime;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Created by qmzhang on 2022/03/03
+ */
+public class TestScheduledExecutor {
+
+
+    public static void main(String[] args) throws Exception{
+
+
+        // 两种方法 注意
+        ScheduledExecutorService scheduledThreadPool = Executors.newScheduledThreadPool(1);
+
+        ScheduledThreadPoolExecutor scheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(5);
+
+        System.out.println("Current Time = "+ LocalDateTime.now());
+
+//        Thread thread = new Thread(new Runnable() {
+//            @Override public void run() {
+//                System.out.println(Thread.currentThread().getName() + "进来了." + " 当前时间是 " + LocalDateTime.now());
+//            }
+//        });
+
+        // 初始化了5个线程, 每次10个，那么每个线程均摊2个，下次再跑的时候又重新分配每个任务的各个线程了
+        // 初始化了1个线程, 每次10个，那么只有一个线程跑10个，delay基本不等待，是同时执行的，1个线程负责提交10个任务？？1000个也差不多
+
+        // 前面两个其实是太快了，不是提交
+
+        // 在run里加点停顿逻辑（2秒，4秒都一样，如果是间隔3秒的话）
+
+        // 就变成了同时跑的只有5个（线程数），后面接着跑，但是每个任务的每次线程都不一样的
+
+        // 所以线程是回收再分配的，不是一个任务一直占着直到结束
+
+        /**
+        pool-2-thread-1进来了.跑的任务是 0 当前时间是 2022-03-03T21:33:12.191
+        pool-2-thread-3进来了.跑的任务是 2 当前时间是 2022-03-03T21:33:12.192
+        pool-2-thread-2进来了.跑的任务是 1 当前时间是 2022-03-03T21:33:12.192
+        pool-2-thread-5进来了.跑的任务是 4 当前时间是 2022-03-03T21:33:12.192
+        pool-2-thread-4进来了.跑的任务是 3 当前时间是 2022-03-03T21:33:12.192
+        pool-2-thread-1进来了.跑的任务是 5 当前时间是 2022-03-03T21:33:16.192
+        pool-2-thread-2进来了.跑的任务是 7 当前时间是 2022-03-03T21:33:16.193
+        pool-2-thread-4进来了.跑的任务是 9 当前时间是 2022-03-03T21:33:16.193
+        pool-2-thread-5进来了.跑的任务是 8 当前时间是 2022-03-03T21:33:16.193
+        pool-2-thread-3进来了.跑的任务是 6 当前时间是 2022-03-03T21:33:16.193
+        pool-2-thread-1进来了.跑的任务是 0 当前时间是 2022-03-03T21:33:20.193
+        pool-2-thread-4进来了.跑的任务是 2 当前时间是 2022-03-03T21:33:20.194
+        pool-2-thread-5进来了.跑的任务是 3 当前时间是 2022-03-03T21:33:20.194
+        pool-2-thread-2进来了.跑的任务是 1 当前时间是 2022-03-03T21:33:20.194
+        pool-2-thread-3进来了.跑的任务是 4 当前时间是 2022-03-03T21:33:20.194
+        pool-2-thread-1进来了.跑的任务是 5 当前时间是 2022-03-03T21:33:24.193
+        pool-2-thread-4进来了.跑的任务是 6 当前时间是 2022-03-03T21:33:24.194
+        pool-2-thread-2进来了.跑的任务是 8 当前时间是 2022-03-03T21:33:24.194
+        pool-2-thread-5进来了.跑的任务是 7 当前时间是 2022-03-03T21:33:24.194
+        pool-2-thread-3进来了.跑的任务是 9 当前时间是 2022-03-03T21:33:24.194
+         */
+
+        // 加了点随机值的话 就不一样了啊，应该也有抢占的概念，有的任务就会多执行一次，应该是任务都是想3秒跑一次，3秒的时候有没有线程另说
+        /**
+         pool-2-thread-2进来了.跑的任务是 1 执行时间是 2 当前时间是 2022-03-03T21:45:13.336
+         pool-2-thread-5进来了.跑的任务是 4 执行时间是 3 当前时间是 2022-03-03T21:45:14.336
+         pool-2-thread-3进来了.跑的任务是 2 执行时间是 3 当前时间是 2022-03-03T21:45:14.336
+         pool-2-thread-1进来了.跑的任务是 0 执行时间是 4 当前时间是 2022-03-03T21:45:15.336
+         pool-2-thread-4进来了.跑的任务是 3 执行时间是 4 当前时间是 2022-03-03T21:45:15.336
+         pool-2-thread-2进来了.跑的任务是 5 执行时间是 3 当前时间是 2022-03-03T21:45:16.336
+         pool-2-thread-5进来了.跑的任务是 6 执行时间是 2 当前时间是 2022-03-03T21:45:16.336
+         pool-2-thread-3进来了.跑的任务是 7 执行时间是 3 当前时间是 2022-03-03T21:45:17.337
+         pool-2-thread-4进来了.跑的任务是 9 执行时间是 3 当前时间是 2022-03-03T21:45:18.336
+         pool-2-thread-1进来了.跑的任务是 8 执行时间是 4 当前时间是 2022-03-03T21:45:19.336
+         pool-2-thread-5进来了.跑的任务是 1 执行时间是 3 当前时间是 2022-03-03T21:45:19.337
+         pool-2-thread-4进来了.跑的任务是 3 执行时间是 2 当前时间是 2022-03-03T21:45:20.336
+         pool-2-thread-2进来了.跑的任务是 0 执行时间是 4 当前时间是 2022-03-03T21:45:20.337
+         pool-2-thread-1进来了.跑的任务是 4 执行时间是 2 当前时间是 2022-03-03T21:45:21.336
+         pool-2-thread-3进来了.跑的任务是 2 执行时间是 5 当前时间是 2022-03-03T21:45:22.337
+         pool-2-thread-2进来了.跑的任务是 7 执行时间是 2 当前时间是 2022-03-03T21:45:22.337
+         pool-2-thread-4进来了.跑的任务是 6 执行时间是 3 当前时间是 2022-03-03T21:45:23.337
+         pool-2-thread-1进来了.跑的任务是 8 执行时间是 2 当前时间是 2022-03-03T21:45:23.337
+         pool-2-thread-3进来了.跑的任务是 9 执行时间是 2 当前时间是 2022-03-03T21:45:24.337
+         pool-2-thread-5进来了.跑的任务是 5 执行时间是 5 当前时间是 2022-03-03T21:45:24.337
+         pool-2-thread-4进来了.跑的任务是 1 执行时间是 3 当前时间是 2022-03-03T21:45:26.337
+         pool-2-thread-2进来了.跑的任务是 0 执行时间是 4 当前时间是 2022-03-03T21:45:26.337
+         pool-2-thread-5进来了.跑的任务是 4 执行时间是 2 当前时间是 2022-03-03T21:45:26.338
+         pool-2-thread-1进来了.跑的任务是 2 执行时间是 4 当前时间是 2022-03-03T21:45:27.337
+         */
+        for (int i = 0; i < 10; i++ ) {
+//            scheduledThreadPoolExecutor.schedule(thread, 5, TimeUnit.SECONDS);
+
+            scheduledThreadPoolExecutor.scheduleAtFixedRate(new MyThread(i), 2, 3, TimeUnit.SECONDS);
+        }
+
+        Thread.currentThread().join();
+
+    }
+
+}
+
+
+
+```
+
 ### Java线程的状态
 
 以下是这些状态的总结，状态的的英文名字对应像jstack或者visualvm中的线程名字

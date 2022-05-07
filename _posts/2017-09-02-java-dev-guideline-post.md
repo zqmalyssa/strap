@@ -49,6 +49,16 @@ POJO是DO/DTO/BO/VO的统称，禁止命名成xxxPOJO。
 
 也是包依赖的问题，直接在idea里的library里面增加tools.jar包，这个jar包在jdk安装目录的lib目录下面
 
+3、java中的科学计数法
+
+小数点后连续超过3个0就变成科学计数法了
+
+sout(0.0001)   1.0E-4
+
+sout(-0.0001)  -1.0E-4
+
+解决的办法是 NumberFormat、DecimalFormat、BigDecimal这三种API实现方式。
+
 ### 正则的使用
 
 1、正则中想要匹配一些特殊的字符，需要"\"进行修饰

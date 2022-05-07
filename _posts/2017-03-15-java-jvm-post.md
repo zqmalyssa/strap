@@ -126,6 +126,20 @@ Swap:        0k total,        0k used,        0k free,  1151812k cached
 
 RES（Resident Set Size）是常驻内存的意思，进程实际使用的物理内存
 
+GC中的一些参数：
+
+-XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:/home/GCEASY/gc.log -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=20M
+
+指定上述参数，当日志文件大小增加到 20MB，JVM 会进行 GC 日志轮转生成最多5个文件，扩展名分别为 `gc.log.0`、`gc.log.1`、`gc.log.2`、`gc.log.3` 和 `gc.log.4`
+
+最新的 GC 日志写入 `gc.log.4`，而过去的 GC 日志内容存入 `gc.log.0`。
+
+接着，如果重启这个应用，现在新 GC 日志会写入 `gc.log.0`。重启前的日志信息保存在 `gc.log.1`, `gc.log.2`, `gc.log.3`, `gc.log.4` 中。因此，重启后的 GC 新日志与旧日志混在一起。要解决这个问题，可以在重启应用前把所有旧日志移动到一个独立的文件夹中。
+
+XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=E:/jm/wgh/heapdump.dump -XX:OnOutOfMemoryError -XX:+ExitOnOutOfMemoryError
+
+指定上述参数，OOM后会把.hprof文件导出来 OnOutOfMemoryError会在发生错误时候，执行一个脚本或者命令，-XX:+ExitOnOutOfMemoryError，OOM后，应用程序直接退出
+
 #### 类编译加载
 
 JVM负责装载class文件并执行，将源码编译成class文件的实现取决于各个JVM的实现或各种源码编译器，class文件通常由类加载器(ClassLoader)来完成加载。

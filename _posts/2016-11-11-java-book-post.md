@@ -68,3 +68,9 @@ tags: [code, book]
 | 《Git权威指南》 | 工具 |  |  |  |  |
 | 《重构——改善既有代码的设计》 | 工具 |  |  |  |  |
 | 《netty权威指南》 | RPC |  | 电子 | yes | 不错的介绍netty的书，讲的方方面面挺多的，还有源码分析 |
+
+**一些站点推荐**
+
+Java工程师成神之路 GitHub Pages 完整阅读：[进入](https://hollischuang.github.io/toBeTopJavaer/)
+
+Java工程师成神之路 Gitee Pages 完整阅读：[进入](http://hollischuang.gitee.io/tobetopjavaer) (国内访问速度较快)

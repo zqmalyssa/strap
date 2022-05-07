@@ -330,3 +330,29 @@ ApplicationContext：应用上下文类，其主要继承了beanFactory(bean的�
 ### Springboot的RestTemplate
 
 RestTemplate在什么情况下抛异常，在4XX 和 5XX 的情况下会抛异常，3XX 和 2XX 是不会的
+
+### Springboot的一些异常
+
+1、启动报错
+
+```html
+
+Exception in thread "main" java.lang.NoClassDefFoundError: org/springframework/core/metrics/ApplicationStartup
+at org.springframework.boot.SpringApplication.<init>(SpringApplication.java:251)
+at org.springframework.boot.SpringApplication.<init>(SpringApplication.java:264)
+at com.amway.commerce.commodity.Application.main(Application.java:27)
+Caused by: java.lang.ClassNotFoundException: org.springframework.core.metrics.ApplicationStartup
+at java.net.URLClassLoader.findClass(URLClassLoader.java:381)
+at java.lang.ClassLoader.loadClass(ClassLoader.java:424)
+at sun.misc.Launcher$AppClassLoader.loadClass(Launcher.java:338)
+at java.lang.ClassLoader.loadClass(ClassLoader.java:357)
+
+Spring Boot从2.4开始使用了Spring Framework 5.3，可以从Spring boot 2.3升级到2.4找到此说明。其中org/springframework/core/metrics/ApplicationStartup也是Spring Framework5.3新增的类。
+
+```
+
+解决方法
+
+如果确定要升级，那Spring Framwork 也要升级到对应的版本，2.4.11对应的版本是Spring Framework 5.3.3。否在降级Spring boot版本。
+
+有一说是parent中的版本要大于等于本pom的版本，但其实不是这个问题，做过测试

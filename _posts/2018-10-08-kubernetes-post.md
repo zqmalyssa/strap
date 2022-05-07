@@ -13,7 +13,7 @@ kubernetes所有的配置数据存储在etcd中；其他组件通过API Server�
 
 Pod是管理一组容器，Pod对外共享一个Ip，通过livenessProbe探针监测容器是否健康，另外一类是readinessProbe探针来判断容器是否启动完成
 
-Service是是一些列pod的逻辑集合的抽象，同时他是访问这些pod的一个策略，有时候也被称为微服务。Service通过Label Selector和Pod建立关联关系，并由Service决定将访问转向到后端的哪个pod。当Service被创建后，系统自动创建一个同名的endpoints，该对象包含pod的ip地址和端口号集合。Service分为三类：ClusterIP，NodePort，LoadBalancer
+Service是一系列pod的逻辑集合的抽象，同时他是访问这些pod的一个策略，有时候也被称为微服务。Service通过Label Selector和Pod建立关联关系，并由Service决定将访问转向到后端的哪个pod。当Service被创建后，系统自动创建一个同名的endpoints，该对象包含pod的ip地址和端口号集合。Service分为三类：ClusterIP，NodePort，LoadBalancer
 
 kube-apiserver是整个集群管理的 API 接口，所有对集群进行的查询和管理都要通过 API 来进行集群内部各个模块之间通信的枢纽，所有模块之前并不会之间互相调用，而是通过和 API Server 打交道来完成自己那部分的工作集群安全控制：API Server 提供的**验证和授权**保证了整个集群的安全。Kubernetes所有的配置数据存储在etcd中，其他组件通过API Server和ETCD打交道
 1. 它是集群管理的API入口
@@ -42,11 +42,413 @@ kube-proxy也有三种工作模式，分别是
 
 其中usersapce是用到了linux中用户态和内核态的切换，所以性能损耗比较大，iptables模式是Pod较多时候，规则也非常多，但kube-proxy不去做负载均衡，之前kube-proxy可以重试，但是现在就是一条条路由规则，要转发的Pod没有响应，就会导致超时，需要配合K8s探针一起使用，IPVS模式用hash tables来存储网络转发规则，比iptables快，它主要工作在内核空间，性能会更好
 
+#### 补充：各大组件官方定义
+
+Kubernetes主要由以下几个核心组件组成：首先在master节点上 有api server，scheduler，controller-manager，etcd，Node节点上有kubelet和kube-proxy
+
+etcd保存了整个集群的状态；
+
+apiserver提供了资源操作的唯一入口，并提供认证、授权、访问控制、API注册和发现等机制；（集群内各功能模块的通信，通过apiserver将信息存入etcd）
+
+controller manager负责维护集群的状态，比如故障检测、自动扩展、滚动更新等；（endpointController[定期关联service和pod]和replicationController[完成pod的复制和移除]）
+
+scheduler负责资源的调度，按照预定的调度策略将Pod调度到相应的机器上；（）
+
+kubelet负责维护容器的生命周期，同时也负责Volume（CVI）和网络（CNI）的管理；（运行在每个Node上，kubelet会通过api service 注册节点自身信息，用于master发现节点,它会定期从etcd获取分配到本机的pod，并根据pod信息启动或停止相应的容器，并定期向master节点汇报节点资源的使用情况,内部集成cadvise来监控容器和节点资源。）
+
+Container runtime负责镜像管理以及Pod和容器的真正运行（CRI）；
+
+kube-proxy负责为Service提供cluster内部的服务发现和负载均衡；（负责为pod提供代理。它会定期从etcd获取所有的service，并根据service信息创建代理。当某个客户pod要访问其他pod时，访问请求会经过本机proxy做转发）
+
+kube-dns负责为整个集群提供DNS服务
+
+Ingress Controller为服务提供外网入口
+
+Heapster提供资源监控
+
+Dashboard提供GUI
+
+Federation提供跨可用区的集群
+
+Fluentd-elasticsearch提供集群日志采集、存储与查询
+
+#### 补充：官方设计理念
+
+1、API设计原则
+
+a）声明式的操作，相对于命令式操作，对于重复操作的效果是稳定的，这对于容易出现数据丢失或重复的分布式环境来说是很重要的。另外，声明式操作更容易被用户使用，可以使系统向用户隐藏实现的细节，隐藏实现的细节的同时，也就保留了系统未来持续优化的可能性。此外，声明式的API，同时隐含了所有的API对象都是名词性质的，例如Service、Volume这些API都是名词，这些名词描述了用户所期望得到的一个目标分布式对象。
+
+共8点
+
+h）尽量避免让操作机制依赖于全局状态，因为在分布式系统中要保证全局状态的同步是非常困难的。
+
+2、核心技术概念和API对象
+
+例如副本集Replica Set对应的API对象是RS。每个API对象都有3大类属性：元数据metadata、规范spec和状态status。
+
+元数据metadata是用来标识API对象的，每个对象都至少有3个元数据：namespace，name和uid；除此以外还有各种各样的标签labels用来标识和匹配不同的对象，例如用户可以用标签env来标识区分不同的服务部署环境，分别用env=dev、env=testing、env=production来标识开发、测试、生产的不同服务。
+
+规范spec描述了用户期望K8s集群中的分布式系统达到的理想状态（Desired State），例如用户可以通过复制控制器Replication Controller设置期望的Pod副本数为3
+
+状态status描述了系统实际当前达到的状态（Status），例如系统当前实际的Pod副本数为2；那么复制控制器当前的程序逻辑就是自动启动新的Pod，争取达到副本数为3
+
+K8s中所有的配置都是通过API对象的spec去设置的，也就是用户通过配置系统的理想状态来改变系统，这是k8s重要设计理念之一，即所有的操作都是声明式（Declarative）的而不是命令式（Imperative）的。声明式操作在分布式系统中的好处是稳定，不怕丢操作或运行多次，例如设置副本数为3的操作运行多次也还是一个结果，而给副本数加1的操作就不是声明式的，运行多次结果就错了。
+
+Pod：K8s有很多技术概念，同时对应很多API对象，最重要的也是最基础的是微服务Pod。Pod是在K8s集群中运行部署应用或服务的最小单元，它是可以支持多容器的，Pod的设计理念是支持多个容器在一个Pod中共享网络地址和文件系统，可以通过进程间通信和文件共享这种简单高效的方式组合完成服务。Pod对多容器的支持是K8s最基础的设计理念。比如你运行一个操作系统发行版的软件仓库，一个Nginx容器用来发布软件，另一个容器专门用来从源仓库做同步，这两个容器的镜像不太可能是一个团队开发的，但是他们一块儿工作才能提供一个微服务；这种情况下，不同的团队各自开发构建自己的容器镜像，在部署的时候组合成一个微服务对外提供服务。
+
+Pod是K8s集群中所有业务类型的基础，可以看作运行在K8s集群中的小机器人，不同类型的业务就需要不同类型的小机器人去执行。目前K8s中的业务主要可以分为长期伺服型（long-running）、批处理型（batch）、节点后台支撑型（node-daemon）和有状态应用型（stateful application）；分别对应的小机器人控制器为Deployment、Job、DaemonSet和PetSet，本文后面会一一介绍。
+
+RC：复制控制器（Replication Controller，RC），RC是K8s集群中最早的保证Pod高可用的API对象。通过监控运行中的Pod来保证集群中运行指定数目的Pod副本。指定的数目可以是多个也可以是1个；少于指定数目，RC就会启动运行新的Pod副本；多于指定数目，RC就会杀死多余的Pod副本。即使在指定数目为1的情况下，通过RC运行Pod也比直接运行Pod更明智，因为RC也可以发挥它高可用的能力，保证永远有1个Pod在运行。RC是K8s较早期的技术概念，只适用于长期伺服型的业务类型，比如控制小机器人提供高可用的Web服务。
+
+RS：副本集（Replica Set，RS），RS是新一代RC，提供同样的高可用能力，区别主要在于RS后来居上，能支持更多种类的匹配模式。副本集对象一般不单独使用，而是作为Deployment的理想状态参数使用（Spec）。
+
+Deployment：部署(Deployment)，部署表示用户对K8s集群的一次更新操作。部署是一个比RS应用模式更广的API对象，可以是创建一个新的服务，更新一个新的服务，也可以是滚动升级一个服务。滚动升级一个服务，实际是创建一个新的RS，然后逐渐将新RS中副本数增加到理想状态，将旧RS中的副本数减小到0的复合操作；这样一个复合操作用一个RS是不太好描述的，所以用一个更通用的Deployment来描述。以K8s的发展方向，未来对所有长期伺服型的的业务的管理，都会通过Deployment来管理。
+
+Service：服务（Service），RC、RS和Deployment只是保证了支撑服务的微服务Pod的数量，但是没有解决如何访问这些服务的问题。一个Pod只是一个运行服务的实例，随时可能在一个节点上停止，在另一个节点以一个新的IP启动一个新的Pod，因此不能以确定的IP和端口号提供服务。要稳定地提供服务需要服务发现和负载均衡能力。服务发现完成的工作，是针对客户端访问的服务，找到对应的的后端服务实例。在K8s集群中，客户端需要访问的服务就是Service对象。每个Service会对应一个集群内部有效的虚拟IP，集群内部通过虚拟IP访问一个服务。在K8s集群中微服务的负载均衡是由Kube-proxy实现的。Kube-proxy是K8s集群内部的负载均衡器。它是一个分布式代理服务器，在K8s的每个节点上都有一个；这一设计体现了它的伸缩性优势，需要访问服务的节点越多，提供负载均衡能力的Kube-proxy就越多，高可用节点也随之增多。与之相比，我们平时在服务器端做个反向代理做负载均衡，还要进一步解决反向代理的负载均衡和高可用问题。（这边理解一下，之前的反向代理需要解决高可用的问题）
+
+```html
+
+// 这边有一个例子
+
+kubectl describe svc reviews
+
+Name:              reviews
+Namespace:         default
+Labels:            app=reviews
+									service=reviews
+Annotations:       kubectl.kubernetes.io/last-applied-configuration:
+										{"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app":"reviews","service":"reviews"},"name":"reviews","namespac...
+Selector:          app=reviews
+Type:              ClusterIP
+IP:                10.96.28.177
+Port:              http  9080/TCP
+TargetPort:        9080/TCP
+Endpoints:         10.217.0.65:9080,10.217.2.210:9080,10.217.2.60:9080
+Session Affinity:  None
+Events:            <none>
+
+kubectl get svc -l app=reviews
+
+NAME      TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)    AGE
+reviews   ClusterIP   10.96.28.177   <none>        9080/TCP   626d
+
+kubectl get pod -l app=reviews -owide
+
+NAME                          READY   STATUS    RESTARTS   AGE    IP             NODE           NOMINATED NODE   READINESS GATES
+reviews-v1-5f9994d47f-g4ldn   2/2     Running   8          626d   10.217.0.65    xxx7871hp360   <none>           <none>
+reviews-v2-6c5884b957-p62h8   2/2     Running   6          626d   10.217.2.60    xxx8163hp360   <none>           <none>
+reviews-v3-674889fd47-wxbpk   2/2     Running   6          626d   10.217.2.210   xxx8163hp360   <none>           <none>
+
+kubectl get ep -l app=reviews
+
+NAME      ENDPOINTS                                             AGE
+reviews   10.217.0.65:9080,10.217.2.210:9080,10.217.2.60:9080   626d
+
+这边主要说明的是 service与后面endpoint的Ip及port的映射关系是放在endpoints中
+
+```
+
+另外，可以定义没有selector的service，就不会创建相关的Endpoints对象，可以手动将Service映射到指定的Endpoints
+
+```html
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: my-service
+spec:
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 9376
+
+
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: my-service
+subsets:
+  - addresses:
+      - ip: 1.2.3.4
+    ports:
+      - port: 9376
+
+
+注意：Endpoint IP 地址不能是 loopback（127.0.0.0/8）、 link-local（169.254.0.0/16）、或者 link-local 多播（224.0.0.0/24）。
+
+访问没有 selector 的 Service，与有 selector 的 Service 的原理相同。请求将被路由到用户定义的 Endpoint（该示例中为 1.2.3.4:9376）。
+
+ExternalName Service 是 Service 的特例，它没有 selector，也没有定义任何的端口和 Endpoint。 相反地，对于运行在集群外部的服务，它通过返回该外部服务的别名这种方式来提供服务。
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: my-service
+  namespace: prod
+spec:
+  type: ExternalName
+  externalName: my.database.example.com
+
+当查询主机 my-service.prod.svc.CLUSTER时，集群的 DNS 服务将返回一个值为 my.database.example.com 的 CNAME 记录。 访问这个服务的工作方式与其它的相同，唯一不同的是重定向发生在 DNS 层，而且不会进行代理或转发。 如果后续决定要将数据库迁移到 Kubernetes 集群中，可以启动对应的 Pod，增加合适的 Selector 或 Endpoint，修改 Service 的 type。
+
+```
+
+多端口Service
+
+很多 Service 需要暴露多个端口。对于这种情况，Kubernetes 支持在 Service 对象中定义多个端口。 当使用多个端口时，必须给出所有的端口的名称，这样 Endpoint 就不会产生歧义，例如：
+
+```html
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: my-service
+spec:
+    selector:
+      app: MyApp
+    ports:
+      - name: http
+        protocol: TCP
+        port: 80
+        targetPort: 9376
+      - name: https
+        protocol: TCP
+        port: 443
+        targetPort: 9377
+
+```
+
+
+Job：Job是K8s用来控制批处理型任务的API对象。批处理业务与长期伺服业务的主要区别是批处理业务的运行有头有尾，而长期伺服业务在用户不停止的情况下永远运行。Job管理的Pod根据用户的设置把任务成功完成就自动退出了。成功完成的标志根据不同的spec.completions策略而不同：单Pod型任务有一个Pod成功就标志完成；定数成功型任务保证有N个任务全部成功；工作队列型任务根据应用确认的全局成功而标志成功。
+
+DaemonSet：后台支撑服务集（DaemonSet），长期伺服型和批处理型服务的核心在业务应用，可能有些节点运行多个同类业务的Pod，有些节点上又没有这类Pod运行；而后台支撑型服务的核心关注点在K8s集群中的节点（物理机或虚拟机），要保证每个节点上都有一个此类Pod运行。节点可能是所有集群节点也可能是通过nodeSelector选定的一些特定节点。典型的后台支撑型服务包括，存储，日志和监控等在每个节点上支持K8s集群运行的服务。
+
+PetSet：有状态服务集（PetSet），K8s在1.3版本里发布了Alpha版的PetSet功能。在云原生应用的体系里，有下面两组近义词；第一组是无状态（stateless）、牲畜（cattle）、无名（nameless）、可丢弃（disposable）；第二组是有状态（stateful）、宠物（pet）、有名（having name）、不可丢弃（non-disposable）。RC和RS主要是控制提供无状态服务的，其所控制的Pod的名字是随机设置的，一个Pod出故障了就被丢弃掉，在另一个地方重启一个新的Pod，名字变了、名字和启动在哪儿都不重要，重要的只是Pod总数；而PetSet是用来控制有状态服务，PetSet中的每个Pod的名字都是事先确定的，不能更改。PetSet中Pod的名字的作用，并不是《千与千寻》的人性原因，而是关联与该Pod对应的状态。对于RC和RS中的Pod，一般不挂载存储或者挂载共享存储（想想项目挂载共享存储Gluster FS），保存的是所有Pod共享的状态，Pod像牲畜一样没有分别（这似乎也确实意味着失去了人性特征）；对于PetSet中的Pod，每个Pod挂载自己独立的存储，如果一个Pod出现故障，从其他节点启动一个同样名字的Pod，要挂载上原来Pod的存储继续以它的状态提供服务。适合于PetSet的业务包括数据库服务MySQL和PostgreSQL，集群化管理服务Zookeeper、etcd等有状态服务。PetSet的另一种典型应用场景是作为一种比普通容器更稳定可靠的模拟虚拟机的机制。传统的虚拟机正是一种有状态的宠物，运维人员需要不断地维护它，容器刚开始流行时，我们用容器来模拟虚拟机使用，所有状态都保存在容器里，而这已被证明是非常不安全、不可靠的。使用PetSet，Pod仍然可以通过漂移到不同节点提供高可用，而存储也可以通过外挂的存储来提供高可靠性，PetSet做的只是将确定的Pod与确定的存储关联起来保证状态的连续性。PetSet还只在Alpha阶段，后面的设计如何演变，我们还要继续观察。
+
+Federation：集群联邦（Federation），K8s在1.3版本里发布了beta版的Federation功能。在云计算环境中，服务的作用距离范围从近到远一般可以有：同主机（Host，Node）、跨主机同可用区（Available Zone）、跨可用区同地区（Region）、跨地区同服务商（Cloud Service Provider）、跨云平台。K8s的设计定位是单一集群在同一个地域内，因为同一个地区的网络性能才能满足K8s的调度和计算存储连接要求。而联合集群服务就是为提供跨Region跨服务商K8s集群服务而设计的。
+
+Az，Region，Cloud Service Provider。。（注意这边是跨region，跨服务商，也就是region以上的）
+
+每个K8s Federation有自己的分布式存储、API Server和Controller Manager。用户可以通过Federation的API Server注册该Federation的成员K8s Cluster。当用户通过Federation的API Server创建、更改API对象时，Federation API Server会在自己所有注册的子K8s Cluster都创建一份对应的API对象。在提供业务请求服务时，K8s Federation会先在自己的各个子Cluster之间做负载均衡，而对于发送到某个具体K8s Cluster的业务请求，会依照这个K8s Cluster独立提供服务时一样的调度模式去做K8s Cluster内部的负载均衡。而Cluster之间的负载均衡是通过域名服务的负载均衡来实现的。（向每个注册的cluster创建一个API对象）
+
+所有的设计都尽量不影响K8s Cluster现有的工作机制，这样对于每个子K8s集群来说，并不需要更外层的有一个K8s Federation，也就是意味着所有现有的K8s代码和机制不需要因为Federation功能有任何变化。
+
+Volume：存储卷（Volume），K8s集群中的存储卷跟Docker的存储卷有些类似，只不过Docker的存储卷作用范围为一个容器，而K8s的存储卷的生命周期和作用范围是一个Pod。每个Pod中声明的存储卷由Pod中的所有容器共享。K8s支持非常多的存储卷类型，特别的，支持多种公有云平台的存储，包括AWS，Google和Azure云；支持多种分布式存储包括GlusterFS和Ceph；也支持较容易使用的主机本地目录hostPath和NFS。K8s还支持使用Persistent Volume Claim即PVC这种逻辑存储，使用这种存储，使得存储的使用者可以忽略后台的实际存储技术（例如AWS，Google或GlusterFS和Ceph），而将有关存储实际技术的配置交给存储管理员通过Persistent Volume来配置。
+
+PV和PVC：持久存储卷（Persistent Volume，PV）和持久存储卷声明（Persistent Volume Claim，PVC），PV和PVC使得K8s集群具备了存储的逻辑抽象能力，使得在配置Pod的逻辑里可以忽略对实际后台存储技术的配置，而把这项配置的工作交给PV的配置者，即集群的管理者。存储的PV和PVC的这种关系，跟计算的Node和Pod的关系是非常类似的；PV和Node是资源的提供者，根据集群的基础设施变化而变化，由K8s集群管理员配置；而PVC和Pod是资源的使用者，根据业务服务的需求变化而变化，有K8s集群的使用者即服务的管理员来配置。
+
+Node：节点（Node），K8s集群中的计算能力由Node提供，最初Node称为服务节点Minion，后来改名为Node。K8s集群中的Node也就等同于Mesos集群中的Slave节点，是所有Pod运行所在的工作主机，可以是物理机也可以是虚拟机。不论是物理机还是虚拟机，工作主机的统一特征是上面要运行kubelet管理节点上运行的容器。
+
+Secret：密钥对象（Secret），Secret是用来保存和传递密码、密钥、认证凭证这些敏感信息的对象。使用Secret的好处是可以避免把敏感信息明文写在配置文件里。在K8s集群中配置和使用服务不可避免的要用到各种敏感信息实现登录、认证等功能，例如访问AWS存储的用户名密码。为了避免将类似的敏感信息明文写在所有需要使用的配置文件中，可以将这些信息存入一个Secret对象，而在配置文件中通过Secret对象引用这些敏感信息。这种方式的好处包括：意图明确，避免重复，减少暴漏机会。
+
+User Account/Service Account：用户帐户（User Account）和服务帐户（Service Account），顾名思义，用户帐户为人提供账户标识，而服务账户为计算机进程和K8s集群中运行的Pod提供账户标识。用户帐户和服务帐户的一个区别是作用范围；用户帐户对应的是人的身份，人的身份与服务的namespace无关，所以用户账户是跨namespace的；而服务帐户对应的是一个运行中程序的身份，与特定namespace是相关的。
+
+Namespace：名字空间（Namespace），名字空间为K8s集群提供虚拟的隔离作用，K8s集群初始有两个名字空间，分别是默认名字空间default和系统名字空间kube-system，除此以外，管理员可以可以创建新的名字空间满足需要。
+
+RBAC：K8s在1.3版本中发布了alpha版的基于角色的访问控制（Role-based Access Control，RBAC）的授权模式。相对于基于属性的访问控制（Attribute-based Access Control，ABAC），RBAC主要是引入了角色（Role）和角色绑定（RoleBinding）的抽象概念。在ABAC中，K8s集群中的访问策略只能跟用户直接关联；而在RBAC中，访问策略可以跟某个角色关联，具体的用户在跟一个或多个角色相关联。显然，RBAC像其他新功能一样，每次引入新功能，都会引入新的API对象，从而引入新的概念抽象，而这一新的概念抽象一定会使集群服务管理和使用更容易扩展和重用。
+
+#### 补充：官方组件更新
+
+Master 组件
+
+Master组件可以在集群中任何节点上运行。但是为了简单起见，通常在一台VM/机器上启动所有Master组件，并且不会在此VM/机器上运行用户容器。请参考 构建高可用群集以来构建multi-master-VM。
+
+Node 组件
+
+kubelet是主要的节点代理，它会监视已分配给节点的pod，具体功能：
+
+#### 补充：官方对象
+
+对于要创建的Kubernetes对象的yaml文件，需要为以下字段设置值：
+
+apiVersion - 创建对象的Kubernetes API 版本
+kind - 要创建什么样的对象？
+metadata- 具有唯一标示对象的数据，包括 name（字符串）、UID和Namespace（可选项）
+
+还需要提供对象Spec字段，对象Spec的精确格式（对于每个Kubernetes 对象都是不同的），以及容器内嵌套的特定于该对象的字段。
+
+
+Kubernetes REST API中的所有对象都用Name和UID来明确地标识。
+
+对于非唯一用户提供的属性，Kubernetes提供labels和annotations。（注意这里）
+
+Name：Name在一个对象中同一时间只能拥有单个Name，如果对象被删除，也可以使用相同Name创建新的对象，Name用于在资源引用URL中的对象，例如/api/v1/pods/some-name。通常情况，Kubernetes资源的Name能有最长到253个字符（包括数字字符、-和.），但某些资源可能有更具体的限制条件，具体情况可以参考
+
+UIDs：UIDs是由Kubernetes生成的，在Kubernetes集群的整个生命周期中创建的每个对象都有不同的UID（即它们在空间和时间上是唯一的）。
+
+Labels：Labels其实就一对 key/value ，被关联到对象上，标签的使用我们倾向于能够标示对象的特殊特点，并且对用户而言是有意义的（就是一眼就看出了这个Pod是尼玛数据库），但是标签对内核系统是没有直接意义的。标签可以用来划分特定组的对象（比如，所有女的），标签可以在创建一个对象的时候直接给与，也可以在后期随时修改，每一个对象可以拥有多个标签，但是，key值必须是唯一的，我们最终会索引并且反向索引（reverse-index）labels，以获得更高效的查询和监视，把他们用到UI或者CLI中用来排序或者分组等等。我们不想用那些不具有指认效果的label来污染label，特别是那些体积较大和结构型的的数据。不具有指认效果的信息应该使用annotation来记录。
+
+Selectors：与Name和UID 不同，标签不需要有唯一性。一般来说，我们期望许多对象具有相同的标签。通过标签选择器（Labels Selectors），客户端/用户 能方便辨识出一组对象。标签选择器是kubernetes中核心的组成部分。API目前支持两种选择器：equality-based（基于平等）和set-based（基于集合）的。标签选择器可以由逗号分隔的多个requirements 组成。在多重需求的情况下，必须满足所有要求，因此逗号分隔符作为AND逻辑运算符。
+
+Equality-based requirement
+
+基于相等的或者不相等的条件允许用标签的keys和values进行过滤。匹配的对象必须满足所有指定的标签约束，尽管他们可能也有额外的标签。有三种运算符是允许的，“=”，“==”和“!=”。前两种代表相等性（他们是同义运算符），后一种代表非相等性。例如：
+
+第一个选择所有key等于 environment 值为 production 的资源。后一种选择所有key为 tier 值不等于 frontend 的资源，和那些没有key为 tier 的label的资源。要过滤所有处于 production 但不是 frontend 的资源，可以使用逗号操作符，
+
+```html
+
+frontend：environment=production,tier!=frontend
+
+```
+
+Set-based requirement
+
+Set-based 的标签条件允许用一组value来过滤key。支持三种操作符: in ， notin 和 exists(仅针对于key符号) 。例如：
+
+```html
+
+environment in (production, qa)
+tier notin (frontend, backend)
+partition
+!partition
+
+```
+
+第一个例子，选择所有key等于 environment ，且value等于 production 或者 qa 的资源。 第二个例子，选择所有key等于 tier 且值是除了 frontend 和 backend 之外的资源，和那些没有标签的key是 tier 的资源。 第三个例子，选择所有有一个标签的key为partition的资源；value是什么不会被检查。 第四个例子，选择所有的没有lable的key名为 partition 的资源；value是什么不会被检查。
+
+Set-based的条件可以与Equality-based的条件结合。例如， partition in (customerA,customerB),environment!=qa 。
+
+`LIST和WATCH过滤`
+
+LIST和WATCH操作可以指定标签选择器来过滤使用查询参数返回的对象集。这两个要求都是允许的（在这里给出，它们会出现在URL查询字符串中）：
+
+LIST和WATCH操作，可以使用query参数来指定label选择器来过滤返回对象的集合。两种条件都可以使用：
+
+1、Set-based的要求：?labelSelector=environment%3Dproduction,tier%3Dfrontend
+2、Equality-based的要求：?labelSelector=environment+in+%28production%2Cqa%29%2Ctier+in+%28frontend%29
+
+两个标签选择器样式都可用于通过REST客户端列出或观看资源。例如，apiserver使用kubectl和使用基于平等的人可以写：
+
+两种标签选择器样式，都可以通过REST客户端来list或watch资源。比如使用 kubectl 来针对 apiserver ，并且使用Equality-based的条件，可以用：
+
+```html
+
+$ kubectl get pods -l environment=production,tier=frontend
+
+或使用Set-based 要求：
+
+$ kubectl get pods -l 'environment in (production),tier in (frontend)'
+
+```
+
+一些Kubernetes对象，例如services和replicationcontrollers，也使用标签选择器来指定其他资源的集合，如pod。
+
+Service和ReplicationController
+一个service针对的pods的集合是用标签选择器来定义的。类似的，一个replicationcontroller管理的pods的群体也是用标签选择器来定义的。对于这两种对象的Label选择器是用map定义在json或者yaml文件中的，并且只支持Equality-based的条件：
+
+```html
+
+"selector": {
+    "component" : "redis",
+}
+
+或者
+
+selector:
+    component: redis
+
+
+```
+
+此选择器（分别为json或yaml格式）等同于component=redis或component in (redis)。
+
+支持set-based要求的资源
+
+Job，Deployment，Replica Set，和Daemon Set，支持set-based要求。
+
+```html
+
+selector:
+  matchLabels:
+    component: redis
+  matchExpressions:
+    - {key: tier, operator: In, values: [cache]}
+    - {key: environment, operator: NotIn, values: [dev]}
+
+
+```
+
+matchLabels 是一个{key,value}的映射。一个单独的 {key,value} 相当于 matchExpressions 的一个元素，它的key字段是”key”,操作符是 In ，并且value数组value包含”value”。 matchExpressions 是一个pod的选择器条件的list 。有效运算符包含In, NotIn, Exists, 和DoesNotExist。在In和NotIn的情况下，value的组必须不能为空。所有的条件，包含 matchLabels andmatchExpressions 中的，会用AND符号连接，他们必须都被满足以完成匹配。
+
+Annotations：可以使用Kubernetes Annotations将任何非标识metadata附加到对象。客户端（如工具和库）可以检索此metadata。可以使用Labels或Annotations将元数据附加到Kubernetes对象。标签可用于选择对象并查找满足某些条件的对象集合。相比之下，Annotations不用于标识和选择对象。Annotations中的元数据可以是small 或large，structured 或unstructured，并且可以包括标签不允许使用的字符。Annotations就如标签一样，也是由key/value组成：
+
+```html
+
+"annotations": {
+  "key1" : "value1",
+  "key2" : "value2"
+}
+
+
+```
+
+以下是在Annotations中记录信息的一些例子：
+
+1、构建、发布的镜像信息，如时间戳，发行ID，git分支，PR编号，镜像hashes和注Registry地址。
+2、一些日志记录、监视、分析或audit repositories。
+3、一些工具信息：例如，名称、版本和构建信息。
+4、用户或工具/系统来源信息，例如来自其他生态系统组件对象的URL。
+5、负责人电话/座机，或一些信息目录。
+
 #### 补充：各大组件之间的交互
 
 这个在MS的时候可能会被大概率问及，所以需要掌握，有的地方可以结合源码
 
 Pod中的进程如何知道API Server的访问地址，其实kubernetes API Server本身**也是个Service**，它的名字是"kubernetes"，它的ClusterIp是地址池中的第一个地址，它所服务的端口是HTTPS端口443。API Server还提供一类很特殊的REST接口，就是kubernetes Proxy API接口，这类接口的作用是代理REST请求，即API Server把收到的REST请求转发到某个Node上的kubelet守护进程的REST端口，由该kubelet进程负责响应。API Server作为集群的核心，负责集群各个功能模块之间的通信，集群内各个功能模块**通过API Server将信息存入etcd**，当需要获取和操作数据时，通过API Server提供的REST接口(GET, LIST, WATCH)来实现。例如，kubelet每隔一个周期就会调用API Server的REST接口报告自身的状态，API Server接收这些信息后，将节点状态信息更新到etcd，此外kubelet也通过API Server的**Watch接口监听Pod信息**，如果监听到新的Pod副本被调度绑定到本节点，则执行Pod对应容器的创建和启动逻辑，如果监听到Pod被删除，则删除本节点上相应的Pod容器，修改也是。另外，controller-manager与API Server的通信，Node Controller模块通过API Server提供的Watch接口，实时监控Node的信息，并做相应处理。还有比较重要的是scheduler的场景，Scheduler通过WATCH接口监听到新建Pod副本的信息后，它会检索所有符合该Pod要求的Node列表，开始执行Pod的调度逻辑，调度成功后将Pod绑定到目标节点上。为了减轻API Server的压力，各功能模块都采用缓存机制来缓存数据，各功能模块定时从API Server获得指定的资源对象信息(通过LIST和WATCH方法)，然后将这些信息保存到本地缓存。Controller Manager里包含Replication Controller，Node Controller，ResourcceQuata Controller，Namespace Controller，ServiceAccount Controller，Token Controller，Service Controller，Endpoint Controller等，这里面每种controller都负责一个具体的控制流程，而controller manager是这些controller的核心管理者。每个controller都是这样一个操作系统，他们通过API Server提供的接口实时监控整个集群里每个资源对象的当前状态，当发生异常时，尝试将系统从"现有状态"修正到"期望状态"。Node Controller通过API Server实时获取Node的相关信息。Endpoint对象是PodIp+Port的形式的，Endpoint对象在哪里被使用的？是在每个Node上的kube-proxy进程，获取每个Service的Endpoint，实现Service的负载均衡。Scheduler是将待调度的Pod和Controller新建的Pod按照特定的调度算法和调度策略绑定到集群中某个合适的Node上，**并将绑定信息写入etcd**（这里个人认为还是会通过API Server），kubelet通过API Server监听etcd目录，同步Pod列表，所以以非API Server方式创建的Pod都叫做static pod，kubelet使用探针或者cAdvisor来监控资源。将Service落实的是Kube-proxy组件，Service就是个反向代理。Service的NodePort和ClusterIP等概念是kube-proxy服务通过iptables的NAT转换来实现的，在运行过程中动态创建与Service的相关Iptables
+
+#### 补充：List-Watch机制
+
+kube-apiserver，因为它接收到的请求量是十分巨大的，为了减少这种请求量，降低kube-apiserver的压力，便设计出了list-watch机制。client端在跟server端长期进行交互时，并不是每次需要查询时都去调用server的接口，而是使用list+watch的方式来维护一个缓存将server端的数据缓存起来，当需要获取数据的时候直接从缓存中获取，一方面可以降低server端的压力，另一方面也可以减少自己获取数据的时间。当然，增删改还是需要调用server端的接口。
+
+在这个体系下，kubelet,scheduler,controller-manager等就是客户端组件，也就是客户端（总不是轮询ApiServer呗，采用的是ApiServer主动发HTTP请求，就涉及到了List-Watch机制）
+
+查/增删改分开的，Etcd存储集群的数据信息，apiserver作为统一入口，任何对数据的操作都必须经过apiserver。客户端(kubelet/scheduler/controller-manager)通过list-watch监听apiserver中资源(pod/rs/rc等等)的create,update和delete事件，并针对事件类型调用相应的事件处理函数。list非常好理解，就是调用资源的list API罗列资源，基于HTTP短链接实现；watch则是调用资源的watch API监听资源变更事件，基于HTTP 长链接实现。
+
+在k8s中，list-watch本质上还是client端监听k8s资源变化并作出相应处理的生产者消费者框架。因此在分析这部分的代码之前就会有问题在脑海中：生产者是谁？消费者是谁？传递了啥？怎么传递的？
+
+除此之外，往往生产者只有一个，消费者有多个，这种情况下怎么保证每个消费者都能收到消息？
+
+好，带着这些问题，我们慢慢往下看。
+
+从字面上看，list就是获取静态的所有数据，而watch则是只关心发生了变化的那部分。对于client端而言，list是获取当前所有值列表的方法，主要用来查询，而watch则是用来监听每个资源的增删改事件。list是一般的rest api中都会实现的功能，我们这里重点讲一下watch。
+
+1、可以watch特定的资源，并根据资源的变动类型（增删改）进行不同的处理
+2、watch到变化时将这个变化加如到队列中，由处理逻辑从队列中取，将事件的生产和消费分离开来
+3、想要查询某个资源时只需要从缓存中获取，不需要向kube-apiserver发请求
+4、对于某些特定的资源，除了能watch变化以外，还能定期产生变化的事件，用来做周期性检查
+5、多个不同的controller可能需要watch同一个资源，因此希望能在同一个watch的架构中能共享缓存并且能分别接收同一个资源的相同事件
+
+list-watch机制中最基础的数据结构threadSafeMap和cache，其本质是对一个map[string]interface{}进行增删改查，cache比threadSafeMap多了一个可以定义计算唯一索引方法（map的key值）的函数。为了便于对这个map中的对象进行分类，threadSafeMap中使用了indexers和indices这两个元素，用来维护根据不同维度来对所有对象进行分类的map。cache基于threadSafeMap中的函数实现了Store和Indexer两个interface，区别在于前者是不带分类功能（indexers为空），后者带分类功能。从interface上来讲，关系则稍显复杂，可以把Store当做最基本的操作interface，可拓展的方向很多，Indexer则是其中一种拓展，主要是增加了分类的功能，是Informer的基础。后面会讲到的Queue也是Store的一种拓展，增加了队列相关的出队列（Pop）功能。
+
+(原文1)[http://yost.top/2019/08/01/inside-list-watch-in-k8s/]
+(原文2)[https://zhuanlan.zhihu.com/p/59660536]
+
+1、Informer 在初始化时，Reflector 会先 List API 获得所有的 Pod
+2、Reflect 拿到全部 Pod 后，会将全部 Pod 放到 Store 中
+3、如果有人调用 Lister 的 List/Get 方法获取 Pod， 那么 Lister 会直接从 Store 中拿数据
+4、Informer 初始化完成之后，Reflector 开始 Watch Pod，监听 Pod 相关 的所有事件;如果此时 pod_1 被删除，那么 Reflector 会监听到这个事件
+5、Reflector 将 pod_1 被删除 的这个事件发送到 DeltaFIFO
+6、DeltaFIFO 首先会将这个事件存储在自己的数据结构中(实际上是一个 queue)，然后会直接操作 Store 中的数据，删除 Store 中的 pod_1
+7、DeltaFIFO 再 Pop 这个事件到 Controller 中
+8、Controller 收到这个事件，会触发 Processor 的回调函数
+9、LocalStore 会周期性地把所有的 Pod 信息重新放到 DeltaFIFO 中
+
+生产者消费者模型组织起来的关键数据结构informer和reflector，这也是在k8s的client中直接使用的数据结构，其中会使用到我们前面讲到的基础数据结构。
+
+Reflector：reflector用来watch特定的k8s API资源。具体的实现是通过ListAndWatch的方法，watch可以是k8s内建的资源或者是自定义的资源。当reflector通过watch API接收到有关新资源实例存在的通知时，它使用相应的列表API获取新创建的对象，并将其放入watchHandler函数内的DeltaFIFO队列中。
+
+Informer：informer从DeltaFIFO队列中弹出对象。执行此操作的功能是processLoop。base controller的作用是保存对象以供以后检索，并调用我们的控制器将对象传递给它。
+
+Indexer：索引器提供对象的索引功能。典型的索引用例是基于对象标签创建索引。 Indexer可以根据多个索引函数维护索引。Indexer使用线程安全的数据存储来存储对象及其键。 在Store中定义了一个名为MetaNamespaceKeyFunc的默认函数，该函数生成对象的键作为该对象的<namespace> / <name>组合。
+
+也就是说，reflector是真正的生产者，informer则是消费者，由此可以推测reflector中一定有队列，informer中一定有逻辑来调用这个队列的Pop函数来进行处理。
+
+前面讲到了Reflector是生产者，Informer是消费者，但是中间需要有一个桥梁来将两者关联起来，而这个角色就是Controller来扮演的，它会将生产者和消费者都运行起来。
+
+可以看到从reflector到controller都是生产者这边对队列的入队处理以及消费者对出队元素的处理，并没有看到全量缓存的踪迹，其实这个是要留给Informer来做的，另外对队列中Pop出来的元素进行处理也是config中的Process函数的事情，这个处理函数也是Informer中定义的。
+
+
 
 #### 补充：集群安全机制
 
