@@ -204,3 +204,31 @@ RestTemplate restTemplate = new RestTemplate();
 那么恢复的时候呢，就不用了，windows和linux更改了hosts后会生效，所以之前一直connect timeout的会自动ok！！
 
 ```
+
+#### 输入http://www.baidu.com发生了什么
+
+1、解析域名
+
+首先，浏览器本身是可以缓存DNS域名解析的，浏览器会先在自己内部的DNS缓存中查找是否有现成的记录
+
+否则，查询操作系统级别的DNS缓存，windows中，有一个叫做DNS Cache的服务，Linux中可能是NSCD，也可能是DNSmasq，如果有命中，直接返回结果
+
+如果没有，查询本机Hosts文件记录，windows和linux中目录不同
+
+如果没有，像电脑配置的DNS服务器发出递归查询请求，等待DNS返回最终响应
+
+域名解析的结果，我们可以通过ping命令捕获
+
+2、连接服务器
+
+连接80或者443端口
+
+3、发送请求
+
+发送HTTP请求，HTTP请求包括请求方法，URL，协议版本三个最基本的要素，以及种类繁多的各式HTTP Header
+
+4、等待响应
+
+5、传输响应内容
+
+6、浏览器渲染处理

@@ -301,3 +301,87 @@ shell: >
   date -s"$(curl -s --head http://google.com
   | grep '^Date:' | sed 's/Date: //g') +0530"
 ```
+
+
+2、有的时候想要方便测试，就在本机执行
+
+```html
+
+ansible -i ./hosts --connection=local local -m shell -a 'ip a'
+
+// hosts文件中可以填写
+
+local ansible_host=127.0.0.1 ansible_connection=local
+
+// 再用playbook
+
+---
+- hosts: "{{ ci_list }}"
+  gather_facts: no
+  vars:
+    host: "{{ ci_list }}"
+    classRule: "{{ class_rule }}"
+    ipPortFilter: "{{ ipport_filter }}"
+    ipFilter: "{{ ip_filter }}"
+    portFilter: "{{ port_filter }}"
+    ipAddress: "{{ip_address}}"
+
+  tasks:
+  - name: find interface name by ip.
+    shell: ip a | grep {{ ipAddress }} | awk '{print $NF}'
+    register: result
+    when: host != "all"
+    async: 30
+    poll: 1
+
+  - name: add tc qdsic.
+    shell: >
+      tc qdisc add dev {{ result.stdout }} root handle 1: prio bands 4 &&
+      tc qdisc add dev {{ result.stdout }} parent 1:4 handle 40: netem {{ classRule }}
+    when: result is not skipped and result is success
+    async: 30
+    poll: 1
+
+  - name: add ip port tc filter.
+    shell: >
+      tc filter add dev {{ result.stdout }} parent 1: prio 4 protocol ip u32 match ip dst {{ item.ip }} match ip dport {{ item.port }} 0xffff flowid 1:4
+    when: ipPortFilter != ""
+    with_items: "{{ipPortFilter}}"
+    async: 30
+    poll: 1
+
+  - name: add ip tc filter.
+    shell: >
+      tc filter add dev {{ result.stdout }} parent 1: prio 4 protocol ip u32 match ip dst {{ item }} flowid 1:4
+    when: ipFilter != ""
+    with_items: "{{ipFilter}}"
+    async: 30
+    poll: 1
+
+  - name: add port tc filter.
+    shell: >
+      tc filter add dev {{ result.stdout }} parent 1: prio 4 protocol ip u32 match ip dport {{ item }} 0xffff flowid 1:4
+    when: portFilter != ""
+    with_items: "{{portFilter}}"
+    async: 30
+    poll: 1
+
+
+ansible-playbook tc_test1.yaml --extra-vars "{'ci_list':'localhost','ip_address':'10.128.191.182','class_rule':'delay 10ms','ipport_filter':[{'ip':'10.10.10.11','port':'50'},{'ip':'10.10.10.12','port':'60'}],'port_filter':'','ip_filter':''}" -i ./hosts
+
+// 这样就可以本地测试了，注意list的一些写法及获取其中属性的方法
+
+// 这边可以进行优化
+
+- name: add ip port tc filter.
+  shell: >
+    {% for item in ipPortFilter %}
+      tc filter add dev {{ result.stdout }} parent 1: prio 4 protocol ip u32 match ip dst {{ item.ip }} match ip dport {{ item.port }} 0xffff flowid 1:4;
+    {% endfor %}
+  when: ipPortFilter != ""
+  async: 60
+  poll: 1
+
+这样就是item一个一个去跑shell了，可以一并下发，注意语句中的分号
+
+```

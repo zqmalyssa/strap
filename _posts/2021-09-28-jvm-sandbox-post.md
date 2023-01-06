@@ -27,6 +27,268 @@ jvm-sandbox的一些分析
 
 (模块刷新和卸载)[https://developer.aliyun.com/article/717965]
 
+沙箱事件
+
+在JVM-Sandbox的世界观中，任何一个Java方法的调用都可以分解为BEFORE、RETURN和THROWS三个环节，由此在三个环节上引申出对应环节的事件探测和流程控制机制
+
+1、BEFORE事件：执行方法体之前被调用
+2、RETURN事件：执行方法体返回之前被调用
+3、THROWS事件：执行方法体抛出异常之前被调用
+
+为了记录代码调用行记录，增加了一个LineEvent
+
+4、LINE事件：方法行被执行后调用，目前仅记录行号
+
+CALL事件系列是从GREYS中衍生过来的事件，它描述了一个方法内部，调用其他方法的过程。整个过程可以被描述成为三个阶段
+
+5、CALL_BEFORE事件：一个方法被调用之前
+6、CALL_RETURN事件：一个方法被调用正常返回之后
+7、CALL_THROWS事件：一个方法被调用抛出异常之后
+
+```html
+
+void foo(){
+	// BEFORE-EVENT
+	try {
+
+   		/*
+   	 	* do something...
+   	 	*/
+    	try{
+    	    //LINE-EVENT
+    	    //CALL_BEFORE-EVENT
+    		a();
+    		//CALL_RETURN-EVENT
+    	} catch (Throwable cause) {
+    		// CALL_THROWS-EVENT
+		}
+		//LiNE-EVENT
+    	// RETURN-EVENT
+    	return;
+
+	} catch (Throwable cause) {
+    	// THROWS-EVENT
+	}
+}
+
+```
+
+严格意义上，IMMEDIATELY_RETURN和IMMEDIATELY_THROWS不是事件，他们是流程控制机制，由com.alibaba.jvm.sandbox.api.ProcessControlException的throwReturnImmediately(Object)和throwThrowsImmediately(Throwable)触发，完成对方法的流程控制
+
+IMMEDIATELY_RETURN：立即调用:RETURN事件
+
+IMMEDIATELY_THROWS：立即调用:THROWS事件
+
+```html
+
+                                      +-------+
+                                      |        |
++========+  <return>             +========+    | <return immediately>
+|        |  <return immediately> |        |    |
+| BEFORE |---------------------->| RETURN |<---+
+|        |                       |        |
++========+                       +========+
+|                                  |    ^
+|         <throws immediately>     |    |
+|                                  |    |   <return immediately>
+|                                  v    |
+|                                +========+
+|                                |        |
++--------------------------->    | THROWS |<---+
+              <throws>           |        |    |
+       <throws immediately>      +========+    | <throws immediately>
+                                       |       |
+                                       +-------+
+
+```
+
+
+模块生命周期
+
+模块生命周期
+模块生命周期类型有模块加载、模块卸载、模块激活、模块冻结、模块加载完成五个状态。
+
+模块加载：创建ClassLoader，完成模块的加载
+模块卸载：模块增强的类会重新load，去掉增强的字节码
+模块激活：模块被激活后，模块所增强的类将会被激活，所有com.alibaba.jvm.sandbox.api.listener.EventListener将开始收到对应的事件
+模块冻结：模块被冻结后，模块所持有的所有com.alibaba.jvm.sandbox.api.listener.EventListener将被静默，无法收到对应的事件。需要注意的是，模块冻结后虽然不再收到相关事件，但沙箱给对应类织入的增强代码仍然还在。
+模块加载完成：模块加载已经完成，这个状态是为了做日志处理，本身不会影响模块变更行为
+模块可以通过实现com.alibaba.jvm.sandbox.api.ModuleLifecycle接口，对模块生命周期进行控制，接口中的方法：
+
+onLoad：模块开始加载之前调用
+onUnload：模块开始卸载之前调用
+onActive：模块被激活之前调用，抛出异常将会是阻止模块被激活的唯一方式
+onFrozen：模块被冻结之前调用，抛出异常将会是阻止模块被冻结的唯一方式
+
+
+```html
+
+<parent>
+    <groupId>com.alibaba.jvm.sandbox</groupId>
+    <artifactId>sandbox-module-starter</artifactId>
+    <version>1.2.0</version>
+</parent>
+
+package com.alibaba.jvm.sandbox.demo;
+
+import com.alibaba.jvm.sandbox.api.Information;
+import com.alibaba.jvm.sandbox.api.Module;
+import com.alibaba.jvm.sandbox.api.ProcessController;
+import com.alibaba.jvm.sandbox.api.annotation.Command;
+import com.alibaba.jvm.sandbox.api.listener.ext.Advice;
+import com.alibaba.jvm.sandbox.api.listener.ext.AdviceListener;
+import com.alibaba.jvm.sandbox.api.listener.ext.EventWatchBuilder;
+import com.alibaba.jvm.sandbox.api.resource.ModuleEventWatcher;
+import org.kohsuke.MetaInfServices;
+
+import javax.annotation.Resource;
+
+@MetaInfServices(Module.class)
+@Information(id = "broken-clock-tinker")
+public class BrokenClockTinkerModule implements Module {
+
+    @Resource
+    private ModuleEventWatcher moduleEventWatcher;
+
+    @Command("repairCheckState")
+    public void repairCheckState() {
+
+        new EventWatchBuilder(moduleEventWatcher)
+                .onClass("com.taobao.demo.Clock")
+                .onBehavior("checkState")
+                .onWatch(new AdviceListener() {
+
+                    /**
+                     * 拦截{@code com.taobao.demo.Clock#checkState()}方法，当这个方法抛出异常时将会被
+                     * AdviceListener#afterThrowing()所拦截
+                     */
+                    @Override
+                    protected void afterThrowing(Advice advice) throws Throwable {
+
+                        // 在此，你可以通过ProcessController来改变原有方法的执行流程
+                        // 这里的代码意义是：改变原方法抛出异常的行为，变更为立即返回；void返回值用null表示
+                        ProcessController.returnImmediately(null);
+                    }
+                });
+
+    }
+
+}
+
+
+1、运行命令完成打包
+
+mvn clean package
+
+2、将打好的包复制到用户模块目录下
+
+cp target/clock-tinker-1.0-SNAPSHOT-jar-with-dependencies.jar ~/.sandbox-module/
+
+3、下载并安装最新版本沙箱
+
+下载地址：https://ompc.oss.aliyuncs.com/jvm-sandbox/release/sandbox-stable-bin.zip
+
+执行安装
+
+unzip sandbox-stable-bin.zip
+cd sandbox
+
+4、启动沙箱
+
+假设目标进程号：64229
+
+./sandbox.sh -p 64229
+                  NAMESPACE : default
+                    VERSION : 1.2.0
+                       MODE : ATTACH
+                SERVER_ADDR : 0.0.0.0
+                SERVER_PORT : 56854
+             UNSAFE_SUPPORT : ENABLE
+               SANDBOX_HOME : /Users/vlinux/opt/sandbox
+          SYSTEM_MODULE_LIB : /Users/vlinux/opt/sandbox/module
+            USER_MODULE_LIB : ~/.sandbox-module;
+        SYSTEM_PROVIDER_LIB : /Users/vlinux/opt/sandbox/provider
+         EVENT_POOL_SUPPORT : DISABLE
+
+
+./sandbox.sh -p 64229 -l
+broken-clock-tinker ACTIVE  LOADED  0  0  UNKNOW_VERSION  UNKNOW_AUTHOR
+sandbox-info        ACTIVE  LOADED  0  0  0.0.4           luanjia@taobao.com
+sandbox-module-mgr  ACTIVE  LOADED  0  0  0.0.2           luanjia@taobao.com
+sandbox-control     ACTIVE  LOADED  0  0  0.0.3           luanjia@taobao.com
+total=4
+
+触发broken-clock-tinker模块的repairCheckState()，让修复逻辑生效！
+
+执行命令：触发BrokenClockTinkerModule#repairCheckState()方法执行
+
+./sandbox.sh -p 64229 -d 'broken-clock-tinker/repairCheckState'
+
+当你卸载掉JVM-SANDBOX时候，你就会发现原本已经被修复好的钟，又开始继续报错了。原因是原来通过clock-tinker模块修复的checkState()方法随着沙箱的卸载又恢复成原来错误的代码流程。
+
+卸载沙箱
+
+./sandbox.sh -p 64229 -S
+jvm-sandbox[default] shutdown finished.
+
+在这个教程中给大家演示了如何利用沙箱的模块改变了原有方法的执行流程，这里涉及到了沙箱最核心的类ModuleEventWatcher，这个类的实现可以通过@Resource注释注入进来。
+
+```
+
+#### 一些point
+
+1、agent方式启动的好处
+
+AGENT方式启动、有些时候我们需要沙箱工作在应用代码加载之前，或者一次性渲染大量的类、加载大量的模块，此时如果用ATTACH方式加载，可能会引起目标JVM的卡顿或停顿（GC），这就需要启用到AGENT的启动方式。
+
+假设SANDBOX被安装在了/Users/luanjia/pe/sandbox，需要在JVM启动参数中增加上
+
+2、模块常用操作
+
+-F：强制刷新用户模块
+
+沙箱容器在强制刷新的时候，首先会卸载当前所有已经被加载的用户模块，然后再重新对用户模块进行加载
+
+a、首先卸载掉所有已加载的用户模块，然后再重新进行加载
+
+b、模块卸载时将会释放掉沙箱为模块所有开启的资源
+
+模块打开的HTTP链接
+模块打开的WEBSOCKET链接
+模块打开所在的ModuleClassLoader
+模块进行的事件插桩
+
+c、当任何一个模块加载失败时，忽略该模块，继续加载其他可加载的模块
+
+-f：刷新用户模块
+
+刷新用户模块，与强制刷新用户模块不同的地方是，普通刷新会遍历用户模块下所有发生改变的模块文件，当且仅对发生变化的文件进行重新加载操作。
+
+-R：沙箱模块重置
+
+沙箱模块重置的时候将会强制刷新所有的模块，包括用户模块和系统模块。
+
+同样的是，sandbox.properties不会被重新加载
+
+-u：卸载指定模块
+
+卸载指定模块，支持通配符表达式子。卸载模块不会区分系统模块和用户模块，所有模块都可以通过这个参数完成卸载，所以切记不要轻易卸载module-mgr，否则你将失去模块管理功能，不然就只能-R来恢复了。
+
+-a：激活模块
+
+模块激活后才能受到沙箱事件
+
+-A：冻结模块
+
+模块冻结后将感知不到任何沙箱事件，但对应的代码插桩还在。
+
+-d：模块自定义命令
+
+在模块中可以通过对方法标记@Command注释，让sandbox.sh可以将自定义命令传递给被标记的方法。
+
+此时对应过来的-d命令参数为：-d sandbox-info/version即可指定到这个方法。
+
+
 
 #### sandbox破坏了双亲委派机制
 

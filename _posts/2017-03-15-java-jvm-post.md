@@ -781,6 +781,32 @@ GCT: Total garbage collection time. 垃圾回收总时间。
 jstat -gcutil 1 3000 10
 ```
 
+```html
+
+jstat -gc 1234
+
+出来的值是这样的，这是jdk8线上的样子
+
+S0C：第一个幸存区的大小
+S1C：第二个幸存区的大小
+S0U：第一个幸存区的使用大小
+S1U：第二个幸存区的使用大小
+EC：伊甸园区的大小
+EU：伊甸园区的使用大小
+OC：老年代大小
+OU：老年代使用大小
+MC：方法区大小
+MU：方法区使用大小
+CCSC:压缩类空间大小
+CCSU:压缩类空间使用大小
+YGC：年轻代垃圾回收次数
+YGCT：年轻代垃圾回收消耗时间
+FGC：老年代垃圾回收次数
+FGCT：老年代垃圾回收消耗时间
+GCT：垃圾回收消耗总时间
+
+```
+
 4. JProfiler
 
 应该是商用版本，JProfiler是由ej-technologies GmbH公司开发的一款性能瓶颈分析工具(该公司还开发部署工具)。其特点:

@@ -671,3 +671,27 @@ passwd root
 然后就可以用xshell去连了
 
 ```
+
+#### 六、在docker遇到tc和iptables不能用
+
+如果iptables报错
+
+```html
+
+iptables v1.4.21: can't initialize iptables table `filter': Permission denied (you must be root)
+
+docker exec -it --privileged c52ee3e2c033 /bin/bash  // 运行进入容器的时候加上--privileged就可以了
+
+```
+
+如果tc报错
+
+```html
+
+RTNETLINK answers: Operation not permitted
+
+docker inspect a352916a29ba | jq '.[].State.Pid'
+
+nsenter -t 44308 -n tc qdisc show dev eth0   // 可以用nsenter，也可以用docker exec
+
+```

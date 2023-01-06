@@ -86,6 +86,8 @@ public class MyTransformer implements ClassFileTransformer {
         System.out.println(line);
         System.out.println("The number of bytes in Person: "+classfileBuffer.length);
 
+        // 打开这边的注释进行
+
 //        CtClass cl = null;
 //        try {
 //            System.out.println(classfileBuffer.toString());
@@ -208,6 +210,23 @@ public class RunJVM {
     }
 
 }
+
+
+package com.qiming.app.fan.web.javaagent;
+
+/**
+ * Created by qmzhang on 2022/10/20
+ */
+public class Person {
+
+  public String test() {
+    System.out.println("执行测试方法");
+    return "I'm ok";
+  }
+
+}
+
+
 ```
 
 启动的时候需要指定参数为之前build好的agent jar
