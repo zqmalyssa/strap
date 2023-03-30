@@ -179,3 +179,36 @@ google浏览器有许多附加的插件很实用，比如postman，有个画图�
 比如我下的PY的3.7版本，那么我就无法用3.1或者3.4版本的jar包就行激活，会提示`key is invalid`，所以下载低版本的PY，比如20180205，那么key就不报错了
 
 还有如果是key不报错的话，看下help->Edit Custom VM Options是不是有用户自己的配置文件导致启动没有调到
+
+#### 10.idea的变量的使用
+
+```html
+
+# VM Arguments 是设置的虚拟机的属性
+# VM options
+# 环境变量参数  非虚拟机参数需要指定-D参数
+-server -XX:MetaspaceSize=512M -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
+
+
+# Program arguments的值作为args[] 的参数传入的
+
+
+# Environment variable 环境变量  这里不需要-D 参数
+-D 系统属性
+-X* jvm参数
+
+# 两个横杠是springboot参数
+--server.port=8088
+
+
+# VM options 优先级 高于  Environment variable
+
+
+
+优先级:
+Program arguments (--priority=program-agrs) > VM options (-Dpriority=vm-options) > Environment variable (priority=environment-variables)
+
+
+XXXX_SIDECAR_INJECT，比如直接带这样的参数就行了
+
+```

@@ -911,3 +911,16 @@ location / {
   index index.html index.htm;
 }
 ```
+
+
+#### 一些疑问
+
+关于这个server_name，如果同时有多个listen是80，那么就需要server_name去匹配不同的块了，这个server_name应该是去匹配请求中的host
+
+```html
+server {
+   listen       80;
+   server_name  www.wangshibo.com;
+}
+
+```

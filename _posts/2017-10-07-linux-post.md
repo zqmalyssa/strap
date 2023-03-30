@@ -1161,6 +1161,8 @@ lsof命令列出所有打开的文件，一些参数解释如下
 1. FD代表文件描述符，CWD代表当前工作目录，RTD代表根目录，TXT代表文本程序，还有1u，3r，4w
 2. TYPE代表文件和它的鉴定，DIR目录，REG代表常规文件，CHR字符特殊文件，FIFO先进先出
 
+// 不同的用户出来数据是不一样的，列出当前用户的！！！
+
 列出用户特定的已打开文件
 
 ```html
@@ -1841,6 +1843,44 @@ p.linux基本操作
 &&  ： 顺序执行各条命令， 只有当前一个执行成功时候， 才执行后面的。
 
 ||   ： 顺序执行各条命令， 只有当前面一个执行失败的时候， 才执行后面的。
+
+
+```
+
+q.grep的使用
+
+Linux中grep查找含有某字符串的所有文件
+
+```html
+
+--递归查找目录下含有该字符串的所有文件
+grep -rn "data_chushou_pay_info"  /home/hadoop/nisj/automationDemand/
+
+--查找当前目录下后缀名过滤的文件
+grep -Rn "data_chushou_pay_info" *.py
+
+--当前目录及设定子目录下的符合条件的文件
+grep -Rn "data_chushou_pay_info" /home/hadoop/nisj/automationDemand/ *.py
+
+--结合find命令过滤目录及文件名后缀
+find /home/hadoop/nisj/automationDemand/ -type f -name '*.py'|xargs grep -n 'data_chushou_pay_info'
+
+
+Grep选项：
+* : 表示当前目录所有文件，也可以是某个文件名
+-r 是递归查找
+-n 是显示行号
+-R 查找所有文件包含子目录
+-i 忽略大小写
+
+有意思的命令行参数：
+grep -i pattern files ：不区分大小写地搜索。默认情况区分大小写
+grep -l pattern files ：只列出匹配的文件名,不列出路径
+grep -L pattern files ：列出不匹配的文件名
+grep -w pattern files ：只匹配整个单词，而不是字符串的一部分（如匹配‘magic’，而不是‘magical’）
+grep -C number pattern files ：匹配的上下文分别显示[number]行
+grep pattern1 | pattern2 files ：显示匹配 pattern1 或 pattern2 的行
+grep pattern1 files | grep pattern2 ：显示既匹配 pattern1 又匹配 pattern2 的行
 
 
 ```

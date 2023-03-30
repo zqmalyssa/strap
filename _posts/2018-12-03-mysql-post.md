@@ -1092,3 +1092,25 @@ length(汉字)  600 这个是600哦，不要觉得设置的是varchar(200)，但
 char_length(汉字) 200
 
 但是varchar的大小又是按照字节算的，如果全部存汉字，长度设置20000+差不多了，又是用行的，谨慎
+
+
+9、一些小技巧
+
+```html
+// 改一部分的数据
+
+insert into xxx_weight_xxx (
+batch_id,
+service_id,
+data_code,
+weight_year,
+weight_season,
+business_type,
+business_weight,
+sub_bu_weight,
+father_business,
+d_year,
+d_quarter
+) select 46, `service_id`, data_code, weight_year, weight_season, business_type, business_weight, sub_bu_weight, father_business, 2023, 'Q1' from xxx_weight_xxx where d_year = 2022 and d_quarter = "Q3";
+
+```
