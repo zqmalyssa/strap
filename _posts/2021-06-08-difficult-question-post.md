@@ -14,9 +14,36 @@ author-id: zqmalyssa
 LZ上执行的时候就没有worker了
 
 
-worker连接server（服务发现，隔10秒发一次discovery）用的powerjob的域名是 local to local的，那么根据acquire的逻辑，currentServer（10.xx.xx.xx:10086）到本机的就应该直接返回（问题之前一直是local to local的，但删除的时候各个地址都有的）
+a、worker连接server（服务发现，隔10秒发一次discovery）用的powerjob的域名是 local to local的，那么根据acquire的逻辑，currentServer（10.xx.xx.xx:10086）到本机的就应该直接返回（问题之前一直是local to local的，但删除的时候各个地址都有的）
 
-心跳上报是隔15秒上报一次，有了currentServer（也是起了一个线程不停的更新），才会上报
+ServerDiscoveryService.discovery()，就是一个http请求（客户端发起的），http://powerjob.xxx.xx.com/server/acquire?appId=%d&currentServer=%s（第一次去拿，拿完就塞到客户端自己的内存中10.6.6.1:10086这样的形式，后续不是Ip去访问，还是域名去拿的）
+
+到达server，无论哪台，就是去查一下数据库里面的currentServer，如果和本机server一样，直接返回server，如果不是，去ping一把数据库中这个currentServer，ok就返回 // 所以基本上数据库是什么server，返回就是什么server了，对所有client一样
+
+到达server，还有个情况 就是没有可用的server，就要选举，先查看有没有别的server选举好了，没有就自己当主，刷新回app_info中并返回给客户端
+
+b、心跳上报是隔15秒上报一次，有了currentServer（也是起了一个线程不停的更新），才会上报，主要currentServer这边就是ip+port了
+
+akka://oms-server@10.6.6.1:10086/user/server_actor
+
+akka到达server端后，server会把心跳的信息保存起来，每个client一个key，有最近一次的时间map，还有对应的指标map，定时3点
+
+c、client调用时候的currentAddress和appId，也是调用域名获取，所以也是从worker通过local to local去call到server的
+
+d、cancel dispatch job due to no worker available, clusterStatus is CAN'T_FIND_ANY_WORKER. // 这个是直接map里面是null，appId2ClusterStatus会每个server每隔15s去清除不是自己管理appId的key（怀疑是这个影响）验证如下
+
+15号11点起的wf任务，16点凌晨的都没成功，报上面的错误，是另一种no work available的问题，关键日志如下：
+
+2023-05-15 15:10:31.506 [http-nio-8080-exec-29] WARN  c.g.k.p.s.s.h.ServerSelectService - [ServerSelectService] server(10.97.182.70:10086) was down.
+2023-05-15 15:10:33.219 [http-nio-8080-exec-29] INFO  c.g.k.p.s.s.h.ServerSelectService - [ServerSelectService] this server(10.112.13.82:10086) become the new server for app(appId=2).
+2023-05-15 15:10:33.645 [oms-server-akka.actor.default-dispatcher-143208] WARN  c.g.k.p.s.a.a.ServerTroubleshootingActor - [ServerTroubleshootingActor] receive DeadLetter: DeadLetter(AskResponse(success=true, data=[45, 49], message=null),Actor[akka://oms-server@10.97.182.70:10086/user/friend_actor#1073795699],Actor[akka://oms-server/temp/$JCBd])
+
+
+这其中有三个app，c1 对应10.97.182.70:10086 c2 也对应 10.97.182.70:10086 c3 对应 10.112.89.121:10086，15号11点起的任务扔到了10.97.182.70:10086（是c1这个app的），另有一个server 10.112.13.82:10086之前一直没有接app，但是下午3点10分检测到10.97.182.70:10086 down了，自己变成c1的主了，数据库里c1的currentServer变成了10.112.13.82:10086
+
+但是10.97.182.70:10086 还对应了c2这个app，代码里面每隔15s就会粗暴的remove不是我这个server对应的app，也就是10.97.182.70这台承接任务的server把c1这个app的key给干掉了。。也就拿不到worker信息，所以问题还是在换了主
+
+为什么10.112.13.82:10086 认为 10.97.182.70:10086 down了，因为检测的方式是akka的ping类型，貌似是1s的阈值
 
 
 ```html
@@ -44,7 +71,7 @@ https://cloud.tencent.com/developer/article/1824288
 
 解释下：
 
-所以acquire带过来的currentServer是一个
+所以acquire带过来的currentServer是一个（server端只有一个currentSever，即主）
 
 如果当时server是LZ的，那么LZ的请求过来会直接返回，没有选主，如果XZ的过来的话，看数据库里的（也是LZ的），akka端口没问题就返回数据库的，也是LZ的，akka有问题，分布式锁下，然后本机作为server，更新回worker的话currentServer也就变了，那么后续心跳上报的server也变了
 
@@ -54,7 +81,7 @@ akka里的serverPath是 akka://oms-server@10.96.178.40:10086/user/server_actor�
 
 ```
 
-SHAXZ机器上的问题
+SHAXZ机器上的问题 （2点多换主了，心跳都发给新server了）
 
 2022-02-25 02:36:04.629 [omsTimingPool-64] INFO  c.g.k.p.s.s.t.s.OmsScheduleService - [JobScheduleService] cron schedule: 2.198 ms, workflow schedule: 4.829 ms, frequent schedule: 9.258 ms.
 2022-02-25 02:36:04.732 [omsTimingPool-63] INFO  c.g.k.p.s.s.t.InstanceStatusCheckService - [InstanceStatusChecker] status check using 119.2 ms.
@@ -76,7 +103,7 @@ SHAXZ机器上的问题
 
 
 
-SHALZ机器上的问题
+SHALZ机器上的问题 （3点旧的server因为没有心跳发送过来了，导致最近激活的时间超过60s，将worker全部清除了，后面任务也法发了）（每天凌晨3点，omsTimingPool线程池中的线程会去触发timingClean，这个线程池在server端，做1、释放本地缓存 2、）
 
 2022-02-25 03:00:00.000 [omsTimingPool-64] INFO  c.g.k.p.s.s.h.ClusterStatusHolder - [ClusterStatusHolder-monkey] clean the containerInfos, listDeployedContainer service may down about 1min~
 2022-02-25 03:00:00.000 [omsTimingPool-64] INFO  c.g.k.p.s.s.h.ClusterStatusHolder - [ClusterStatusHolder-monkey] detective timeout workers([10.112.54.96:27777, 10.60.41.201:27777, 10.60.117.206:27777, 10.112.54.95:27777]), try to release their infos.
@@ -132,6 +159,14 @@ tcp        0      0 10.5.29.21:27777        10.4.110.194:45884      ESTABLISHED 
 27777口的端口变了56880 -> 45884 -> 33652，server到27777口都是实际任务的交互
 
 ```
+
+2、no server available的问题
+
+有流量的切换，之后开始出现no server available，其实就是 http 请求server有问题，报错 connect timeout，网络的问题，看下连接，到server的VIP，有不少是CLOSE-WAIT的状态，引起注意，因为有几个这样的状态 ss -4 state CLOSE-WAIT
+
+重启下应用把，重置连接
+
+后续还是会有报错，有点费解，然后发现其实有个应用层的bug，每两分钟会去各个环境去调用 HPA相关任务，这些任务在间隔2min的情况下同时并发runJob，那么就会有个connect timeout的问题，应用层做一定优化，减少runJob的实例！！！
 
 #### chaosblade中卸载javaagent的功能
 

@@ -668,6 +668,17 @@ iptables的一些基本使用：
 
 1. iptables -FXZ去清除之前所有规则
 
+-F 清空规则链(注意每个链的管理权限)
+
+iptables -t nat -F PREROUTING
+iptables -t nat -F 清空nat表的所有链
+
+-X 用于删除用户自定义的空链
+
+使用方法跟-N相同，但是在删除之前必须要将里面的链给清空昂了
+
+-Z 清空链，及链中默认规则的计数器的（有两个计数器，被匹配到多少个数据包，多少个字节）
+
 2. iptables -t filter -L // 指定filter表，默认是，会出3条链，因为INPUT，OUTPUT和FORWARD中都有filter表
 
 3. iptables -t filter -L INPUT // 指定链
@@ -1062,7 +1073,19 @@ linux的cpu核心总数也可以在/proc/cpuinfo里面通过指令cat /proc/cpui
 
 ```html
 
-cat /proc/cpuinfo | grep "processor" | wc -l
+cat /proc/cpuinfo | grep "processor" | wc -l // 这个跟top出来的数量是一样的，就是逻辑数量，开了超线程的
+
+cat /sys/devices/system/cpu/cpu0/cache/index0/size  // cpu0的（一共32个processor）L1 Cache【数据】缓存的容量
+
+cat /sys/devices/system/cpu/cpu0/cache/index1/size  // cpu0的（一共32个processor）L1 Cache【指令】缓存的容量
+
+cat /sys/devices/system/cpu/cpu0/cache/index2/size  // cpu0的（一共32个processor）L2 Cache 的容量
+
+上面，L1和L2是每个核都有的
+
+L3是多个核心共享的
+
+cat /sys/devices/system/cpu/cpu0/cache/index3/size  // cpu0的（一共32个processor）L3 Cache 的容量
 
 ```
 
@@ -1136,7 +1159,7 @@ cpu cores 条目包含位于相同物理封装中的内核数量。
 
 如果“siblings”是“cpu cores”的两倍，则说明支持超线程，并且超线程已打开。
 
-top 然后 1出来的是 processor
+top 然后 1出来的是 processor，java中调用Runtime.getRuntime().availableProcessors()出来的也是 processor
 
 补充下，其实按照下面的三个说法就是正确的了，到底机器是多少C的
 
@@ -1146,6 +1169,9 @@ $ lscpu | grep '^CPU(s)'  // 逻辑cpu数量
 
 或者执行top命令，然后按数字1，可以看到Cpu0~CpuN，共N+1个CPU。
 
+cat /proc/softirqs   // 查看cpu的软中断
+
+cat /proc/interrupts   // 查看cpu的硬中断
 
 e.linux如何查看开机自启动的服务
 
@@ -1832,6 +1858,10 @@ ps -ef 与 ps aux
 
 Linux下显示系统进程的命令ps，最常用的有ps -ef 和ps aux。这两个到底有什么区别呢？两者没太大差别，讨论这个问题，要追溯到Unix系统中的两种风格，System Ｖ风格和BSD 风格，ps aux最初用到Unix Style中，而ps -ef被用在System V Style中，两者输出略有不同。现在的大部分Linux系统都是可以同时使用这两种方式的。
 
+ps -T -p 297304 可以查看进程下启动的线程
+
+top -H -p 297304  top也能查看
+
 p.linux基本操作
 
 ```html
@@ -1865,6 +1895,10 @@ grep -Rn "data_chushou_pay_info" /home/hadoop/nisj/automationDemand/ *.py
 --结合find命令过滤目录及文件名后缀
 find /home/hadoop/nisj/automationDemand/ -type f -name '*.py'|xargs grep -n 'data_chushou_pay_info'
 
+--或的关键字
+netstat -anp | grep -E 'CLOSE_WAIT|TIME_WAIT' // 或1
+netstat -anp | egrep 'CLOSE_WAIT|TIME_WAIT'  // 或2
+
 
 Grep选项：
 * : 表示当前目录所有文件，也可以是某个文件名
@@ -1882,6 +1916,34 @@ grep -C number pattern files ：匹配的上下文分别显示[number]行
 grep pattern1 | pattern2 files ：显示匹配 pattern1 或 pattern2 的行
 grep pattern1 files | grep pattern2 ：显示既匹配 pattern1 又匹配 pattern2 的行
 
+
+```
+
+r.ss的使用
+
+netstat在负载高的时候会太慢了，用ss会快点
+
+```html
+
+ss -s // 统计
+
+ss -4 state CLOSE-WAIT // ipv4的状态过滤
+
+ss -6 state listening  // ipv6的状态过滤
+
+s.tcpkill
+
+有的时候要在进程没被杀死的情况下去 kill连接，可以用tcpkii和ngrep去做，但这种是要监听流量的，不监听的可以用ss 或者 hping3
+
+https://www.cnblogs.com/codelogs/p/16838850.html
+
+tcpkill可以指定源IP和源端口去做，比如 tcpkill -i eth0 host 10.22.153.239 and port 46528
+
+比如验证应用和数据库之间的长连接，直接kill掉，相当于发了一个rst包，注意这个连接会消失的！
+
+查询随即出现问题，SocketException: Connection reset by peer (Write failed) // 但很快，应用新开了连接，查询又能访问通了
+
+如果只是指定目标端口去做的，新的连接是建立不起来的
 
 ```
 

@@ -50,7 +50,7 @@ git clone https://github.com/JoelBesada/activate-power-mode.git
 然后将整个文件夹copy到`C:\Users\Fan\.atom\packages`目录，进入文件夹，运行
 
 ```html
-npm install
+npm install  // 这步需要执行，不然打开报错
 ```
 
 如果没有`npm`命令，就要安装一个node，[下载](http://nodejs.cn/download/)之，然后安装并测试
@@ -63,6 +63,18 @@ npm -v
 之后再去文件夹下安装，成功后会有`add packages`的显示，重新打开Atom，就默认有了，用`ctrl + alt + o`进行开启和关闭
 
 还有的插件如markdown-preview，能够很好的预览markdown格式，atom高版本自带了这个package，可以在packages里面搜索`markdown`，然后根据setting获得快捷键的键值对，这样在keybinding就可以自定义快捷键，比如markdown的预览功能
+
+还有列功能的插件atom-sublime
+
+```html
+
+cd ~/.atom/packages/
+git clone https://github.com/bigfive/atom-sublime-select.git
+cd 文件夹
+npm install // 不知道要不要做，反正成功了
+
+
+```
 
 #### 3.Intellij IDEA写java的一些技巧
 

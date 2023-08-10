@@ -771,6 +771,62 @@ select id, username, password, role from user where username=? and password=?
 # systemctl restart mysql
 ```
 
+### 应用与MYSQL
+
+1、JDK8版本过高引起MySQL连接失败：javax.net.ssl.SSLHandshakeException: No appropriate protocol
+
+```html
+
+com.mysql.cj.jdbc.exceptions.CommunicationsException: Communications link failure
+
+The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
+	at com.mysql.cj.jdbc.exceptions.SQLError.createCommunicationsException(SQLError.java:174) ~[mysql-connector-java-8.0.17.jar:8.0.17]
+	at com.mysql.cj.jdbc.exceptions.SQLExceptionsMapping.translateException(SQLExceptionsMapping.java:64) ~[mysql-connector-java-8.0.17.jar:8.0.17]
+	at com.mysql.cj.jdbc.ConnectionImpl.createNewIO(ConnectionImpl.java:827) ~[mysql-connector-java-8.0.17.jar:8.0.17]
+	at com.mysql.cj.jdbc.ConnectionImpl.<init>(ConnectionImpl.java:447) ~[mysql-connector-java-8.0.17.jar:8.0.17]
+	at com.mysql.cj.jdbc.ConnectionImpl.getInstance(ConnectionImpl.java:237) ~[mysql-connector-java-8.0.17.jar:8.0.17]
+	at com.mysql.cj.jdbc.NonRegisteringDriver.connect(NonRegisteringDriver.java:199) ~[mysql-connector-java-8.0.17.jar:8.0.17]
+	at com.zaxxer.hikari.util.DriverDataSource.getConnection(DriverDataSource.java:136) ~[HikariCP-3.2.0.jar:na]
+	at com.zaxxer.hikari.pool.PoolBase.newConnection(PoolBase.java:369) ~[HikariCP-3.2.0.jar:na]
+	at com.zaxxer.hikari.pool.PoolBase.newPoolEntry(PoolBase.java:198) ~[HikariCP-3.2.0.jar:na]
+	at com.zaxxer.hikari.pool.HikariPool.createPoolEntry(HikariPool.java:467) [HikariCP-3.2.0.jar:na]
+	at com.zaxxer.hikari.pool.HikariPool.checkFailFast(HikariPool.java:541) [HikariCP-3.2.0.jar:na]
+	at com.zaxxer.hikari.pool.HikariPool.<init>(HikariPool.java:115) [HikariCP-3.2.0.jar:na]
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:112) [HikariCP-3.2.0.jar:na]
+	at com.zaxxer.hikari.HikariDataSource$$FastClassBySpringCGLIB$$eeb1ae86.invoke(<generated>) [HikariCP-3.2.0.jar:na]
+
+
+方法一：
+
+此处连接的MySQL，导致的报错，修改jdbcUrl，在其后面加useSSL=false后运行正常
+
+方法二：
+
+删除SSLv3, TLSv1, TLSv1.1并保存java.security文件，重启项目即可解决问题，删除后此处为：
+
+查看/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home/jre/lib/security/java.security（Mac上；Windows同理，在jre/lib/security/java.security里面）发现：
+
+# Example:
+#   jdk.tls.disabledAlgorithms=MD5, SSLv3, DSA, RSA keySize < 2048
+jdk.tls.disabledAlgorithms=SSLv3, TLSv1, TLSv1.1, RC4, DES, MD5withRSA, \
+    DH keySize < 1024, EC keySize < 224, 3DES_EDE_CBC, anon, NULL, \
+    include jdk.disabled.namedCurves
+
+改变后
+
+# Example:
+#   jdk.tls.disabledAlgorithms=MD5, SSLv3, DSA, RSA keySize < 2048
+jdk.tls.disabledAlgorithms=RC4, DES, MD5withRSA, \
+    DH keySize < 1024, EC keySize < 224, 3DES_EDE_CBC, anon, NULL, \
+    include jdk.disabled.namedCurves
+
+
+方法三：
+
+降低JDK版本，这个相当也容易操作，比如可以从1.8.0_292降到1.8.0_281，甚至是1.8.0_275版本，但个人不建议，因为Oracle对JDK 8的支持一直会到2030年：
+
+```
+
 ### mysql的使用技巧
 
 1.多表查询转换成子查询
@@ -1114,3 +1170,9 @@ d_quarter
 ) select 46, `service_id`, data_code, weight_year, weight_season, business_type, business_weight, sub_bu_weight, father_business, 2023, 'Q1' from xxx_weight_xxx where d_year = 2022 and d_quarter = "Q3";
 
 ```
+
+10、自增的主键id，然后不赋值进行插入，却报主键冲突
+
+select max(id) from xxx; // 看看目前的最大值是不是已经大于 自增的初始值了，是的话下面的语句重新设置下初始值
+
+alter table xxx AUTO_INCREMENT=20560577;

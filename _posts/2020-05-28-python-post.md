@@ -34,6 +34,28 @@ python -m pip install --upgrade pip
 //安装wheel的方式，先下载，再指定绝对路径
 python -m pip install "D:/XXX/XXX"
 
+//pip如果配置到环境变量，可以直接使用（在python的scripts目录下面）
+pip install D:\wheel\MySQL_python-1.2.5-cp27-none-win_amd64.whl
+
+pip uninstall D:\wheel\MySQL_python-1.2.5-cp27-none-win_amd64.whl
+
+// 这边补充一下，mysqlclient-1.4.6-cp27-cp27m-win_amd64.whl is not a supported wheel on this platform. 这种报错，是pip不能兼容版本的问题
+// 进入python，import pip; print(pip.pep425tags.get_supported())，可以得到pip支持的版本，像上面这个，如果是cp27-none的话就能支持了
+
+>>> import pip;
+>>> print(pip.pep425tags.get_supported())
+[('cp27', 'none', 'win_amd64'), ('py2', 'none', 'win_amd64'), ('cp27', 'none', 'any'), ('cp2', 'none', 'any'), ('cp26', 'none', 'any'), ('cp25', 'none', 'any'), ('cp24', 'none', 'any'), ('cp23', 'none', 'any'), ('cp22', 'none', 'any'), ('cp21', 'none', 'any'), ('cp20', 'none', 'any'), ('py27', 'none', 'any'), ('py2', 'none', 'any'), ('py26', 'none', 'any'), ('py25', 'none', 'any'), ('py24', 'none', 'any'), ('py23', 'none', 'any'), ('py22', 'none', 'any'), ('py21', 'none', 'any'), ('py20', 'none', 'any')]
+
+// 把pip升级，是不是支持的版本更多了
+pip install --upgrade pip  // 一直报错，升级到指定版本，成功了，python环境太老了
+pip install --upgrade pip==20.1.1
+
+// 再import后输出已经没有内容了
+
+pip list查看安装的包
+
+pip install D:\wheel\mysqlclient-1.4.6-cp27-cp27m-win_amd64.whl  // 升级完后可以通过wheel方式安装了
+
 //写requirements.txt的方式安装
 
 requests>=2.9.1
@@ -49,6 +71,17 @@ python -m pip install git+http://git.XXX.XX.com/XXX/serviceclient.git
 可以去down源码，然后解压到这个目录就可以了，也可以从别人的机器那边copy过来
 
 ```
+
+在linux系统中安装python3
+
+```HTML
+
+https://blog.csdn.net/KevinsCSDN/article/details/116565471
+
+https://blog.csdn.net/HD243608836/article/details/121417965
+
+```
+
 
 #### Python中的if和循环
 

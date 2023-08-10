@@ -25,7 +25,7 @@ Could not resolve dependencies for project com.xxx.xxx.app:xxx-data:jar:1.2.5: F
 
 Could not resolve dependencies for project com.xxx.xxx.app:xxx-data:jar:1.2.5: Could not find artifact com.xxx.xxx.app:xxx-common:jar:1.2.5 in nexus (http://maven.release.ctripcorp.com/nexus/content/groups/public)
 
-会一直从远端拉，突然发现其实nexus远端也没有这些基础包啊（不会deploy过去的），于是mvn install一下到本地，去掉<updatePolicy>always</updatePolicy>，没有指定maven_repo的地址，就可以了
+会一直从远端拉，突然发现其实nexus远端也没有这些基础包啊（不会deploy过去的），于是mvn install（加上--settings D:\\code_config\\settings.xml）一下到本地，去掉<updatePolicy>always</updatePolicy>，没有指定maven_repo的地址，就可以了
 
 #### maven的依赖检测与升级等等
 
@@ -267,3 +267,30 @@ pp-service工程
 <spring.version>5.3.18</spring.version>
 
 ```
+
+2、三个项目，引用差不多，为什么就其中一个springboot启动的时候报错
+
+Exception in thread "main" java.lang.NoClassDefFoundError: org/apache/commons/logging/LogFactory
+
+一开始以为引个commons-log就行，但其他两个项目也没引啊，后来发现spring包装了commons-log，叫做spring-jcl
+
+然后强制加下就可以启动项目了，但是另两个项目也强制引入啊，找下maven的依赖，发现另两个项目也没有比较明显的spring-jcl
+
+结合package时候的报错
+
+```html
+
+Found in:
+    org.springframework:spring-jcl:jar:5.3.18:compile
+    org.slf4j:jcl-over-slf4j:jar:1.7.30:compile
+  Duplicate classes:
+    org/apache/commons/logging/Log.class
+    org/apache/commons/logging/impl/NoOpLog.class
+    org/apache/commons/logging/impl/SimpleLog.class
+    org/apache/commons/logging/LogFactory.class
+
+```
+
+发现原来另两个项目不一定用的是spring-jcl，而是jcl-over-slf4j，然后maven去搜索下这个包的依赖链，发现是的，在有问题的项目中被exclude掉了
+
+所以启动的时候报错
