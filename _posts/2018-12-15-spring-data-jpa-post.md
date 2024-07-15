@@ -32,6 +32,8 @@ c.注意：在执行springDataJpa中使用jpql完成更新，删除操作时，�
 d.如果不加Modifying，update和delete用@Query的写法都会报 Not supported for DML operations，但是！！如果不用@Query，不用@Modifying，直接写个int deleteByKey(String key); 内置的语法，是可以的，当然要有Transactional注解，没有Transactional的报错不一样，是org.springframework.dao.InvalidDataAccessApiUsageException: No EntityManager with actual transaction available for current thread - cannot reliably process 'remove' call; nested exception is javax.persistence.TransactionRequiredException: No EntityManager with actual transaction available for current thread - cannot reliably process 'remove' call
 ，但这个报错在没有对应数据的时候是不会出现的。。
 
+e.save和saveandflush的区别，一个是save到内存，还没有提交到数据库，直到事务commit的时候，saveandflush是直接提交到数据库了，当save回的数据需要数据库生成的id信息的话，就用saveandflush
+
 ```
 
 

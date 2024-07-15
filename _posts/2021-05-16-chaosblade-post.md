@@ -1203,7 +1203,7 @@ public class ServletPlugin implements Plugin {
 
 ```html
 
-// 挂载agent： -p 3356 是被攻击应用的jvm进程号
+// 挂载agent： -p 3356 是被攻击应用的jvm进程号   // 这个可以查看版本啊，启动端口等等
 cd ./build-target/chaosblade-0.7.0/lib/sandbox/bin/ && ./sandbox.sh -p 3356
 
 // 激活模块
@@ -1229,6 +1229,22 @@ curl -X post http://127.0.0.1:52971/sandbox/default/module/http/chaosblade/destr
 
 ```html
 
-./sandbox.sh -p 3356 -S
+./sandbox.sh -p 3356 -S   // 这个是进行agent的卸载
+
+```
+
+有一个问题就是
+
+```html
+
+./blade status --type prepare
+
+./blade status --type create
+
+agent和注入都还在运行，为什么不生效？因为可能tomcat已经重启啊等等操作导致运行的假象，telnet存储的端口
+cat /home/deploy/.sandbox.token
+chaosblade;234817233629;localhost;39107
+
+比如这个39107，还在不在了，不在了说明都没有挂载了
 
 ```

@@ -7,7 +7,7 @@ author-id: zqmalyssa
 
 #### pj的问题
 
-1、no work available的问题
+1、no work available的问题(如果有这个问题先看是否在启动wf任务后换主了，并且换主前有多个app共享一个server)
 
 得是一个workflow的任务，开始在LZ的机器，然后2点半篡位了，app2的master变到了XZ，看日志，正常上报心跳，3点清理不用的worker（就是现在时间到最后一次心跳上报时间晚于1min的实例），然后workflow的任务继续在
 
@@ -160,7 +160,7 @@ tcp        0      0 10.5.29.21:27777        10.4.110.194:45884      ESTABLISHED 
 
 ```
 
-2、no server available的问题
+2、no server available的问题（PJ Instance的问题）
 
 有流量的切换，之后开始出现no server available，其实就是 http 请求server有问题，报错 connect timeout，网络的问题，看下连接，到server的VIP，有不少是CLOSE-WAIT的状态，引起注意，因为有几个这样的状态 ss -4 state CLOSE-WAIT
 
@@ -181,6 +181,71 @@ tcp        0      0 10.5.29.21:27777        10.4.110.194:45884      ESTABLISHED 
 对于1，比如dubbo，底层使用netty，有调用链，最终通过netty.send去发送，响应的时候也在receive的地方，需要找到比较好的切入点
 
 比如异步httpclient，底层是一个reactor模型，跟netty是类似的，也需要在上层找一个比较好的切入点
+
+#### chaos相关的问题
+
+1、数据库层面的切入点
+
+是在mysql-connector驱动这边，在初始化连接的时候会有多次数据传输？（要确认，跟db之间的交互，肯定是应用层发起的），连接有了之后，每次固定n秒，一段时间后，又会有多次传输，时间会变大
+
+```html
+
+可以用arthas去调一下，挂两个agent，也是ok的，先走chaos的逻辑，再接到arthas的trace中，是能够看见trace的
+
+[arthas@49]$ trace com.mysql.jdbc.MysqlIO sqlQueryDirect
+Press Q or Ctrl+C to abort.
+Affect(class count: 1 , method count: 1) cost in 1393 ms, listenerId: 1
+`---ts=2023-10-19 16:42:16;thread_name=http-nio-8080-exec-14;id=62;is_daemon=true;priority=5;TCCL=org.apache.catalina.loader.ParallelWebappClassLoader@cf676ec
+    `---[3005.48691ms] com.mysql.jdbc.MysqlIO:sqlQueryDirect()
+        +---[0.00% 0.087657ms ] com.mysql.jdbc.MysqlIO:invokeStatementInterceptorsPre() #2580
+        +---[0.00% 0.020428ms ] com.mysql.jdbc.MySQLConnection:getStatementComment() #2587
+        +---[0.00% 0.029363ms ] com.mysql.jdbc.MySQLConnection:getIncludeThreadNamesAsStatementComment() #2589
+        +---[0.03% 0.981993ms ] com.mysql.jdbc.MysqlIO:sendCommand() #2675
+        +---[0.02% 0.661688ms ] com.mysql.jdbc.MysqlIO:readAllResults() #2725
+        `---[0.00% 0.026265ms ] com.mysql.jdbc.MysqlIO:invokeStatementInterceptorsPost() #2774
+
+
+而在有问题的机器上，看见了jacocoInit
+
+`---ts=2023-10-19 16:56:08;thread_name=domain-executor-2;id=22c;is_daemon=false;priority=5;TCCL=org.apache.catalina.loader.WebappClassLoader@3045a112
+    `---[0.848607ms] com.mysql.jdbc.MysqlIO:sqlQueryDirect()
+        +---[1.38% 0.011737ms ] com.mysql.jdbc.MysqlIO:$jacocoInit()
+        +---[1.39% 0.011776ms ] com.mysql.jdbc.MysqlIO:invokeStatementInterceptorsPre() #2580
+        +---[1.25% 0.010573ms ] com.mysql.jdbc.MySQLConnection:getStatementComment() #2587
+        +---[0.99% 0.008439ms ] com.mysql.jdbc.MySQLConnection:getIncludeThreadNamesAsStatementComment() #2589
+        +---[0.99% 0.008374ms ] com.mysql.jdbc.Buffer:clear() #2611
+        +---[0.97% 0.008253ms ] com.mysql.jdbc.Buffer:writeByte() #2614
+        +---[2.34% 0.019821ms ] com.mysql.jdbc.StringUtils:startsWithIgnoreCaseAndWs() #2627
+        +---[1.29% 0.010919ms ] com.mysql.jdbc.MySQLConnection:getServerCharset() #2630
+        +---[0.98% 0.008325ms ] com.mysql.jdbc.MySQLConnection:parserKnowsUnicode() #2630
+        +---[1.38% 0.011734ms ] com.mysql.jdbc.Buffer:writeStringNoNull() #2630
+        +---[44.90% 0.381018ms ] com.mysql.jdbc.MysqlIO:sendCommand() #2675
+        +---[15.28% 0.129654ms ] com.mysql.jdbc.MysqlIO:readAllResults() #2725
+        `---[1.92% 0.016327ms ] com.mysql.jdbc.MysqlIO:invokeStatementInterceptorsPost() #2774
+
+`---ts=2023-10-19 16:56:08;thread_name=domain-executor-2;id=22c;is_daemon=false;priority=5;TCCL=org.apache.catalina.loader.WebappClassLoader@3045a112
+    `---[0.966727ms] com.mysql.jdbc.MysqlIO:sqlQueryDirect()
+        +---[1.16% 0.011186ms ] com.mysql.jdbc.MysqlIO:$jacocoInit()
+        +---[1.23% 0.011893ms ] com.mysql.jdbc.MysqlIO:invokeStatementInterceptorsPre() #2580
+        +---[0.96% 0.009253ms ] com.mysql.jdbc.MySQLConnection:getStatementComment() #2587
+        +---[1.00% 0.009701ms ] com.mysql.jdbc.MySQLConnection:getIncludeThreadNamesAsStatementComment() #2589
+        +---[64.70% 0.625504ms ] com.mysql.jdbc.MysqlIO:sendCommand() #2675
+        +---[14.14% 0.1367ms ] com.mysql.jdbc.MysqlIO:readAllResults() #2725
+        `---[1.42% 0.01375ms ] com.mysql.jdbc.MysqlIO:invokeStatementInterceptorsPost() #2774
+
+那就有点头绪了，有别的agent干扰了，查下
+
+/opt/tomcat/bin/setenv.sh
+/opt/tomcat/bin/extraenv.sh
+
+所以就符合现象描述了，应用本地调试能走到切点，但是线上就没了，线上环境干扰（切点根本就没有进去，被jacoco干扰了），也和是否shard的db没有关系，最后总得走到驱动
+
+把启动中的agent去掉后就恢复了，这边arthas帮了不少忙
+
+
+```
+
+
 
 #### sandbox的问题
 
@@ -313,7 +378,7 @@ tc qdisc add dev eth0 parent 1:1 netem delay 20ms && tc qdisc add dev eth0 paren
 那其实tc的作用效果是对【出包】产生的的影响！！试下其他redis的命令，比如mget啥的，跟ping-pong是一样的逻辑，只是发的命令不一样
 
 
-再看下telnet的例子，telnet会去进行三次握手
+再看下telnet的例子，telnet会去进行三次握手，注意，第一次请求，不论什么协议，第一次出包（SYN或者PSH），也是会被delay的，只是抓包看不太出
 
 10:36:40.940982 IP (tos 0x10, ttl 64, id 55133, offset 0, flags [DF], proto TCP (6), length 60)
     10.128.191.182.50876 > 10.4.73.209.6379: Flags [S], cksum 0x1e3a (incorrect -> 0x254b), seq 2085400953, win 29200, options [mss 1460,sackOK,TS val 520578596 ecr 0,nop,wscale 7], length 0
@@ -404,6 +469,43 @@ net.ipv4.tcp_syn_retries = 6 看下抓包，time telnet 10.10.10.10 3000（随�
 
 
 wiershark可以搜索SYN，等flags，tcp.flags.SYN == 1 这样，就是过滤是否建连的，然后tcp.stream eq 0 等等可以看指定 ip:port 到 ip:port的交互
+
+
+另外补充 loss 100%的时候，表现的效果是
+
+```html
+
+{"timestamp":"2023-12-14T07:41:20.747+0000","status":500,"error":"Internal Server Error","message":"com.xxx.platform.xxx.exceptions.XxxException: Can not get connection from DB chaos-0-master-10.139.185.25","path":"/api/chaos/test1"}
+
+看着是直接连接拿不到了（有db的中间件）
+
+
+```
+
+另外，正常的tc注入比如
+
+```html
+
+tc qdisc add dev eth0 root netem loss100% 或者 delay 100ms 的时候
+
+这边对于delay来讲，也是【出包】的影响，linux对出包控制的好，进包不好控制
+
+那么loss 100% 的时候，尼玛 其实也是对于【出包】的！！！！！，利用
+
+nohup tcpdump -nn -vvv -i eth0 host 10.10.10.10 > data & 后台执行
+
+从远端ping机器，尼玛，是有入包的，loss掉了出包
+
+15:57:33.769246 IP (tos 0x0, ttl 59, id 47033, offset 0, flags [DF], proto ICMP (1), length 84)
+    10.6.57.58 > 10.4.128.166: ICMP echo request, id 1015, seq 2, length 64
+15:57:34.793259 IP (tos 0x0, ttl 59, id 47528, offset 0, flags [DF], proto ICMP (1), length 84)
+    10.6.57.58 > 10.4.128.166: ICMP echo request, id 1015, seq 3, length 64
+15:57:35.816241 IP (tos 0x0, ttl 59, id 47923, offset 0, flags [DF], proto ICMP (1), length 84)
+    10.6.57.58 > 10.4.128.166: ICMP echo request, id 1015, seq 4, length 64
+
+抓包是只有单向的，反向没有的
+
+```
 
 #### jpa的问题
 
@@ -732,6 +834,106 @@ catch (DataIntegrityViolationException e) {
 捕获时候还是根据message看下把
 
 脏读的问题
+
+
+### 一次cpu，内存都爆
+
+问题：出现CPU异常告警，且每个实例轮番告警
+
+现象：CPU打满，内存打满，请求进不来，健康检测flapping。。挂了，尝试水平扩容，垂直扩容，重启，迁移宿主机，看日志没有发现问题
+
+解决：
+
+```html
+
+1、ps -mp 36 -o THREAD,tid,time  // 找到占用CPU最高的tid
+2、printf "%x\n" 943  // tid转换成16进制
+3、jstack 36 | grep 3af -A60 // 输出对应的堆栈信息，需要发布应用的账户（deploy）
+
+
+1、程序启动前加载缓存数据
+
+2、代码在不停的运行这一行，吃掉CPU，也吃掉内存
+
+3、整个实例挂掉
+
+if (sourceXXXMap.containsKey(key)) {
+//        List<XXXDependency> oldList = sourceXXXMap.get(key);
+//        List<String> existOp = oldList.stream().map(CdbOpDependency::getTargetOp).collect(Collectors.toList());
+//        if (!existOp.contains(x.getTargetOp())) {
+
+// 去除此缓存后ok
+
+```
+
+原因：脏数据 + 代码要优化，有一个应用间依赖包含了 250w+ 的脏数据
+
+### 性能优化
+
+同步时间过长，调用多个API，再比对数据，原来以为是比对数据插入慢，后来发现是逻辑慢
+
+先用stopwatch算一算时间，再结合arthas的trace在线上看看耗时，arth的trace在lamdba模式下不是很友好，for循环能统计里面的函数，但是foreach看不见目前
+
+```html
+
+unzip arthas-bin.zip
+
+./as.sh  // 然后选择pid
+
+```
+
+
+```html
+
+-----------------------------------------
+ms     %     Task name
+-----------------------------------------
+28857  001%  xxx1 api call time
+00563  000%  xxx1 logic time
+144618  007%  xxx2 api call time
+00892  000%  xxx2 logic time
+01329  000%  zzz1 api call time
+1763608  091%  zzz1 logic time 1
+00088  000%  zzz1 logic time 2
+00176  000%  zzz1 logic time 3
+
+
+
+-----------------------------------------
+ms     %     Task name
+-----------------------------------------
+171720  059%  data compare time   // 比较耗时
+80030  028%  update data time  // 更新耗时
+38171  013%  delete data time  // 删除耗时
+
+
+StopWatch stopWatch = new StopWatch();
+stopWatch.start("xxx1 api call time");
+List<XXX1Server> xxx1Servers = xxx1ServerService.getAllServers();
+stopWatch.stop();
+
+stopWatch.start("xxx1 logic time");
+stopWatch.stop();
+
+logger.info("xxx job1 statistics " + stopWatch.prettyPrint());
+
+
+
+trace com.test.Try runMethod
+
+```
+
+后面就不直接发布去生产看了，还是利用上面的 jstack 去一个运行任务的实例中去查，定位到代码，以下命令也可以去查找进程中的线程
+
+```html
+
+top -pH 36  // 这个也能查找出cpu高的线程
+
+IpAddressUtil.findMatchCidr，可以查出来这个方法，然后进行优化
+
+// 去除重复逻辑，修正ip的cidr范围，优化最终查询（使用排序后的list），速度明显上来了，同步的时间间隔越短，会越快的，如果1个小时间隔，中间断掉一次，还是会增加耗时的
+
+```
 
 
 #### 一些误区

@@ -1,53 +1,19 @@
 ---
 layout: post
-title: aws
-tags: [aws]
+title: mysql-connector
+tags: [connector]
 author-id: zqmalyssa
 ---
 
-aws来个记忆文档
+java连接mysql的驱动
 
 #### 相关组件
 
-1、IAM
-
-用户，用户组，角色
-
-
-2、网络
-
-VPC下面可以有多个子网
-
-acl作用在子网上，安全组作用在实例上
-
-安全组可以引用别的安全组，有状态包的筛选，acl是无状态的
-
-安全组仅支持允许规则，acl支持允许及拒绝规则
-
-安全组 在确定是否允许流量之前评估所有规则（比如，如果有允许进入的流量就让其进入，可能在多个安全组内），acl在确定是否允许流量之前按顺序处理所有规则
-
-
-安全组：
-
-1、默认VPC 中的安全组允许所有流量通过。
-2、新安全组没有任何入站规则,且允许出站流量。
-
-网络ACL：
-
-1、默认VPC 中的网络ACL 允许所有入站和出站 IPv4 流量。
-2、自定义网络ACL 拒绝所有入站和出站流量,直至您添加规则。
-
-
-相关学习book：
-
-evantage.gilmoreglobal.com
-
-aws.training 注册考试
-aws.amazon.com  备考资源
-
-3、存储
-
-FSx是hot的存储
+部件名称	主要接口、类	主要作用
+驱动管理器	java.sql.DriverManager	注册、解除驱动。客户端通过它获取连接。
+驱动层	java.sql.Driver	我们常见的用法是接收驱动管理器的命令，生成连接并返回给驱动管理器。
+连接层	java.sql.Connection	形成与数据库间的连接。它的基本功能是创建我们常见的Statement、PreparedStatement然后进行一系列的数据操作。除了实现基本操作的实现类外，还有针对不同的场景有不同的实现，这包括：Failover、Loadbalance、Replication。后续文章会详细介绍它们的代码实现。
+IO层	com.mysql.jdbc.MysqlIO	以java.net.Socket实现与Mysql数据管理软件的数据交互。我们应用使用到的sql命令，最终通过socket的输出流传到mysql数据库管理软件，然后通过socket的输入流获取操作结果信息。
 
 
 #### 相关使用

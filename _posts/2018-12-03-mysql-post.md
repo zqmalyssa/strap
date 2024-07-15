@@ -1176,3 +1176,21 @@ d_quarter
 select max(id) from xxx; // 看看目前的最大值是不是已经大于 自增的初始值了，是的话下面的语句重新设置下初始值
 
 alter table xxx AUTO_INCREMENT=20560577;
+
+11、导入数据的问题
+
+因为排障可能需要数据的导入，这个时候用外部文件或者select或者工具去做，而一般工具也是转成insert语句去做，很慢，可以采用load操作，但前提是有权限
+
+```html
+
+-- 看看local是否有用
+LOAD DATA local INFILE 'D:/data/app_xxx.csv'
+INTO TABLE app_xx
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+LINES TERMINATED BY '\r\n'
+IGNORE 1 ROWS;
+show grants for 'xxxx'@'10.32.10.119';
+show global variables like 'local_infile';
+
+```

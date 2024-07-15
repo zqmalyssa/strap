@@ -113,6 +113,12 @@ awk能使linux的工作非常方便，可以联合bash进行使用，举例如�
 ```
 上面将指定命令进行执行
 
+```html
+
+netstat -anp | grep 6379 | awk '{print $5}' | sort | uniq  // 获取去重的连接
+
+```
+
 ### 五、Linux中xargs使用技巧
 
 xargs一般可以跟find联合使用，将结果作为参数传入
