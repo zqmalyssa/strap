@@ -836,7 +836,7 @@ catch (DataIntegrityViolationException e) {
 脏读的问题
 
 
-### 一次cpu，内存都爆
+#### 一次cpu，内存都爆
 
 问题：出现CPU异常告警，且每个实例轮番告警
 
@@ -868,7 +868,7 @@ if (sourceXXXMap.containsKey(key)) {
 
 原因：脏数据 + 代码要优化，有一个应用间依赖包含了 250w+ 的脏数据
 
-### 性能优化
+#### 性能优化
 
 同步时间过长，调用多个API，再比对数据，原来以为是比对数据插入慢，后来发现是逻辑慢
 
@@ -935,6 +935,29 @@ IpAddressUtil.findMatchCidr，可以查出来这个方法，然后进行优化
 
 ```
 
+#### 服务器上java的调试
+
+1、写相关联的java类，然后package写一个fan这样，以下三个文件的package一样，放在同一个目录比如test下，所以不需要import
+
+CallTest.java ImRequest.java ImResponse.java
+
+2、外部的类在javac编译的时候要用到，那么需要引入jar包
+
+```html
+
+javac -classpath /home/xxx/test/jar/spring-web-5.2.4.RELEASE.jar:/home/xxx/test/jar/spring-core-5.2.4.RELEASE.jar:/home/xxx/test/jar/spring-jcl-5.2.4.RELEASE.jar CallTest.java ImRequest.java ImResponse.java -d .
+
+```
+
+-classpath指定具体的目录，冒号分割，-d指定编译后的文件夹，凡是代码内用到的类都需要放到classpath中
+
+3、运行程序 java fan.CallTest 即可，注意这个时候运行时期的类也都得带上，有的类init的时候需要比编译期更多的类，凡是代码内用到的类都需要放到cp中，比方说gson的序列化需求
+
+```html
+
+java -cp .:/home/xxx/test/jar/spring-web-5.2.4.RELEASE.jar:/home/xxx/test/jar/spring-core-5.2.4.RELEASE.jar:/home/xxx/test/jar/spring-jcl-5.2.4.RELEASE.jar:/home/xxx/test/jar/gson-2.8.6.jar fan.CallTest
+
+```
 
 #### 一些误区
 
