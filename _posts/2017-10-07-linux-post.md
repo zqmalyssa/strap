@@ -1953,6 +1953,28 @@ tcpkill可以指定源IP和源端口去做，比如 tcpkill -i eth0 host 10.22.1
 
 ```
 
+t.nc
+
+可以用nc命令来测试一些端口的问题
+
+```html
+
+nc的话可以yum install -y nc来安装
+
+然后在服务端：
+
+nc -lu 25500 # 启动udp的端口，只能使用一次，第二次再启动下，tcp是一样的
+
+nc -l 25500 # 启动tcp的端口
+
+在客户端，检测服务端的端口情况
+
+nc -zuv xxx.xxx.xxx.xxx 25500
+
+# 使用nc测试UDP端口的时候，提示Connection Refused那是一定不通的，提示packet sent successfully那就不一定是真实的，可能存在也可能不存在
+
+```
+
 ### 十二、vi中的快速操作
 
 以下是在command模式下的快捷键

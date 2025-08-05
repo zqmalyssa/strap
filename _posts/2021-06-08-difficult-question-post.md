@@ -160,6 +160,10 @@ tcp        0      0 10.5.29.21:27777        10.4.110.194:45884      ESTABLISHED 
 
 ```
 
+这边还有一个比较搞的是根因也是换主，但是两个APP用了同一个主，然后其中一个换掉了，server每隔15s会清理不用的appId，会把换主前的appId给清理掉，也会造成no work available，不是在每天的凌晨3点清理
+
+另外，内存中的，就算过了的话，后面还有个timeout之前的心跳的，可能也有影响
+
 2、no server available的问题（PJ Instance的问题）
 
 有流量的切换，之后开始出现no server available，其实就是 http 请求server有问题，报错 connect timeout，网络的问题，看下连接，到server的VIP，有不少是CLOSE-WAIT的状态，引起注意，因为有几个这样的状态 ss -4 state CLOSE-WAIT

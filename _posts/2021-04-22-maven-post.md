@@ -61,6 +61,8 @@ java.lang.NoClassDefFoundError: com/alibaba/fastjson/TypeReference
 
 这个log4j-to-slf4j:jar:2.12.1:compile用到了log4j-api，但是最终使用了2.15.0版本，而不是依赖的2.12.1版本，同时
 
+这边的原则，有高版本尽量保留高版本，因为原则还是向下兼容的
+
 3、再说下scope这个参数
 
 compile : (编译依赖范围) , 在编译 , 测试 , 运行/打包时都会使用这个依赖
