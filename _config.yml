@@ -111,7 +111,9 @@ collections:
 
 # BUILD SETTINGS
 markdown: kramdown
-highlighter: rouge
+kramdown:
+  math_engine: katex
+  syntax_highlighter: rougehighlighter: rouge
 sass:
   sass_dir: _sass
   style: :compressed
