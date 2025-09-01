@@ -585,3 +585,56 @@ ALLOWED_HOSTS = []
 ALLOWED_HOSTS = ['*'] #修改成这样
 ```
 kubernetes才能访问，不想重新打镜像也可以直接在容器中修改，然后，docker commit成新的镜像就可以了
+
+#### Python的uv
+
+```html
+
+// uv一直起不来
+
+uv run --with fastmcp fastmcp dev /Users/zqmalyssa/Code/image-gen-server/server.py
+
+// 通过cursor进行排障
+
+I see you're using uv to run the FastMCP server. The issue is that the brotli dependency needs to be installed in the uv environment. Let me help you install the dependencies using uv:
+
+➜  image-gen-server git:(main) ✗ uv add brotli
+error: No `pyproject.toml` found in current directory or any parent directory
+➜  image-gen-server git:(main) ✗
+
+Since there's no pyproject.toml file, let me try installing the dependencies from the requirements.txt file using uv pip:
+
+➜  image-gen-server git:(main) ✗ uv pip install -r requirements.txt
+Resolved 44 packages in 3.23s
+      Built brotlipy==0.7.0
+Prepared 15 packages in 10.36s
+
+// 重点是上面这句话（uv pip install）就好了，所以uv这个环境有点搞，之前没有用python自带的uv，另外装了一个，用这个方法https://www.cnblogs.com/akapril/p/18671748删除
+
+// uv用python自带的
+
+```
+
+#### Python的conda
+
+```html
+
+// 如果按照d2l的book中的安装方法的话
+
+zh-v2.d2l
+
+pip install d2l==0.17.6 // pip version是不是又会引起异常
+
+// 创建激活完指定环境后，到指定的pip环境中去下载包
+
+conda create --name d2l python=3.9 -y
+conda activate d2l
+
+// 用下面的方式下载依赖包
+/Users/zqmalyssa/miniconda3/envs/d2l/bin/pip --version
+/Users/zqmalyssa/miniconda3/envs/d2l/bin/pip install jupyter d2l torch torchvision
+
+// 启动book
+jupyter notebook
+
+```
