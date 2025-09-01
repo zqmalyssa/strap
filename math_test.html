@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Formula Test</title>
+    
+    <!-- KaTeX CSS -->
+    <link rel="stylesheet" href="assets/css/vendor/katex.min.css">
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .math-block {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .math-inline {
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Math Formula Test</h1>
+    
+    <h2>Inline Math Examples:</h2>
+    <p>Einstein's famous equation: <span class="math-inline" id="inline1"></span></p>
+    <p>Simple fraction: <span class="math-inline" id="inline2"></span></p>
+    <p>Your example: <span class="math-inline" id="inline3"></span></p>
+    
+    <h2>Block Math Examples:</h2>
+    <div class="math-block" id="block1"></div>
+    <div class="math-block" id="block2"></div>
+    <div class="math-block" id="block3"></div>
+    
+    <h2>Your Deep Learning Examples:</h2>
+    <p>Matrix calculation, numerator layout symbol: <span class="math-inline" id="inline4"></span></p>
+    <div class="math-block" id="block4"></div>
+    
+    <!-- KaTeX JS -->
+    <script src="assets/js/vendor/katex.min.js"></script>
+    <script>
+        // Test inline math
+        katex.render('E = mc^2', document.getElementById('inline1'));
+        katex.render('\\frac{a}{b}', document.getElementById('inline2'));
+        katex.render('1+1=2', document.getElementById('inline3'));
+        katex.render('1+1=2', document.getElementById('inline4'));
+        
+        // Test block math
+        katex.render('\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}', document.getElementById('block1'), {displayMode: true});
+        katex.render('\\sum_{i=1}^{n} x_i = x_1 + x_2 + \\cdots + x_n', document.getElementById('block2'), {displayMode: true});
+        katex.render('\\frac{\\partial f}{\\partial x} = \\lim_{h \\to 0} \\frac{f(x+h) - f(x)}{h}', document.getElementById('block3'), {displayMode: true});
+        katex.render('\\frac{\\partial y}{\\partial \\mathbf{x}}', document.getElementById('block4'), {displayMode: true});
+    </script>
+</body>
+</html>
