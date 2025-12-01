@@ -63,7 +63,7 @@ theme_settings:
     wordpress:
     email: true
 
-  # Scripts / Features 
+  # Scripts / Features
   google_analytics: # Tracking ID, e.g. "UA-000000-01"
   disqus_shortname:
   katex: true # Enable if using math markup
@@ -113,7 +113,8 @@ collections:
 markdown: kramdown
 kramdown:
   math_engine: katex
-  syntax_highlighter: rougehighlighter: rouge
+  syntax_highlighter:
+  rougehighlighter: rouge
 sass:
   sass_dir: _sass
   style: :compressed
