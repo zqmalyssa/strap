@@ -113,8 +113,8 @@ collections:
 markdown: kramdown
 kramdown:
   math_engine: katex
-  syntax_highlighter:
-  rougehighlighter: rouge
+  syntax_highlighter: rouge
+  highlighter: rouge
 sass:
   sass_dir: _sass
   style: :compressed
