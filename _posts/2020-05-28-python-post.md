@@ -637,4 +637,20 @@ conda activate d2l
 // 启动book
 jupyter notebook
 
+// 上面安装的应该是高版本的了，运行反向传播会有问题，试试看低的
+/Users/zqmalyssa/miniconda3/envs/d2l/bin/pip install torch==1.12.0
+
+
+// 查看已有的env
+conda env list
+
+// 如果再创建一个虚拟环境呢
+conda create --name ai python=3.9 -y
+
+// 也是有自己的目录的
+/Users/zqmalyssa/miniconda3/envs/ai/bin/pip install openai
+
+// 安装的时候加上代理
+pip install 包名 --proxy socks5://127.0.0.1:10808
+
 ```
