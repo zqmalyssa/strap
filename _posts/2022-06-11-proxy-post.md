@@ -47,4 +47,13 @@ curl ipinfo.io
 
 去测试下设置是否成功，ok的话是走的国外的，不ok的话显示的国内的
 
+export ALL_PROXY=socks5://127.0.0.1:10808 # 设置代理
+echo $ALL_PROXY
+
+curl ipinfo.io # 变成国外
+
+unset ALL_PROXY
+
+curl ipinfo.io # 变成国内
+
 ```

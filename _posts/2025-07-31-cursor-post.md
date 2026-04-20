@@ -144,3 +144,23 @@ git remote -v 再看一下
 这样就能git push了
 
 ```
+
+4、配置openwebui的时候遇到的问题
+
+```html
+
+# 这样一直不成功
+docker run -d -p 3000:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
+
+# 在重建容器 和 卷后，跑起来了。。
+
+docker rm -f open-webui
+docker volume rm open-webui
+
+docker run -d -p 3000:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui --restart always -e WEBUI_HOST=0.0.0.0 ghcr.io/open-webui/open-webui:main
+
+curl -I http://localhost:3000
+
+大概率是和卷有关？
+
+```

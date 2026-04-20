@@ -625,7 +625,7 @@ zh-v2.d2l
 
 pip install d2l==0.17.6 // pip version是不是又会引起异常
 
-// 创建激活完指定环境后，到指定的pip环境中去下载包
+// 创建激活完指定环境后，到指定的pip环境中去下载包  
 
 conda create --name d2l python=3.9 -y
 conda activate d2l
@@ -652,5 +652,66 @@ conda create --name ai python=3.9 -y
 
 // 安装的时候加上代理
 pip install 包名 --proxy socks5://127.0.0.1:10808
+
+/Users/zqmalyssa/miniconda3/envs/ai/bin/pip install --upgrade llama-index-embeddings-huggingface --proxy socks5://127.0.0.1:10808
+
+// 安装llama-factory
+/Users/zqmalyssa/miniconda3/envs/py311/bin/pip install -e ".[torch,metrics]" --no-build-isolation --proxy socks5://127.0.0.1:10808
+
+# 假设不想要torch的版本过高了，不符合文档版本，那么需要torch 和 torchvision一起卸载
+
+/Users/zqmalyssa/miniconda3/envs/d2l/bin/pip uninstall torch
+/Users/zqmalyssa/miniconda3/envs/d2l/bin/pip uninstall torchvision
+
+# 再执行
+/Users/zqmalyssa/miniconda3/envs/d2l/bin/pip install torch==1.12.0
+/Users/zqmalyssa/miniconda3/envs/d2l/bin/pip install torchvision==0.13.0
+
+```
+
+#### 关于环境变量
+
+python用不同的安装方法，装到的路径都不一样，有官方安装的，有homebrew安装的
+
+```html
+
+系统自带的：/usr/bin/python3
+
+官网下载安装的：/Library/Frameworks/Python.framework/Versions/3.x/bin/python3
+
+通过homebrew安装的：/usr/local/bin/python3 或 /opt/homebrew/bin/python3
+
+通过miniconda安装的：/Users/zqmalyssa/miniconda3/envs/ai/bin/python3
+
+# 确实很坑，比如下面
+
+(base) ➜  modelfile whereis python
+python: /Users/zqmalyssa/miniconda3/bin/python
+(base) ➜  modelfile python --version
+Python 3.12.6
+(base) ➜  modelfile /Users/zqmalyssa/miniconda3/bin/python --version
+Python 3.8.18
+
+# 完全不是一个东西，这个跟读环境变量有关的
+(base) ➜  modelfile which python
+python: aliased to /usr/local/bin/python3.12
+
+which python还能准确一点，能识别到.zprofile中的配置，还有.zshrc中的配置
+
+alias python="/usr/local/bin/python3.12"
+alias pip="/usr/local/bin/pip3.12"
+
+PATH="/Library/Frameworks/Python.framework/Versions/3.12/bin:${PATH}"
+export PATH
+
+# 要好好识别一下
+
+# 还有官方安装包安装的，需要配置下ssl
+
+/Applications/Python\ 3.12/Install\ Certificates.command
+
+# 然后在没有proxy的环境支持下socks
+
+pip install pysocks
 
 ```
