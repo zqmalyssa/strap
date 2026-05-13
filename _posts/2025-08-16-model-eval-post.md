@@ -7,11 +7,6 @@ author-id: zqmalyssa
 
 模型评测单独说一下
 
-#### Llama.cpp相关
-
-
-
-
 #### prompt的评测
 
 ```html

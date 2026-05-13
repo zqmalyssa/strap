@@ -630,6 +630,9 @@ pip install d2l==0.17.6 // pip version是不是又会引起异常
 conda create --name d2l python=3.9 -y
 conda activate d2l
 
+// 不激活
+conda deactivate
+
 // 用下面的方式下载依赖包
 /Users/zqmalyssa/miniconda3/envs/d2l/bin/pip --version
 /Users/zqmalyssa/miniconda3/envs/d2l/bin/pip install jupyter d2l torch torchvision
@@ -646,6 +649,9 @@ conda env list
 
 // 如果再创建一个虚拟环境呢
 conda create --name ai python=3.9 -y
+
+// 删除一个虚拟环境
+conda remove -n ai --all
 
 // 也是有自己的目录的
 /Users/zqmalyssa/miniconda3/envs/ai/bin/pip install openai
@@ -666,6 +672,9 @@ pip install 包名 --proxy socks5://127.0.0.1:10808
 # 再执行
 /Users/zqmalyssa/miniconda3/envs/d2l/bin/pip install torch==1.12.0
 /Users/zqmalyssa/miniconda3/envs/d2l/bin/pip install torchvision==0.13.0
+
+// 再创建一个新环境
+conda create -n ai_new python=3.11 -y
 
 ```
 

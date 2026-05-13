@@ -79,3 +79,19 @@ Their final checkpoint, highly optimized version is then named DeepSeek-R1
 3、Supervised Fine-Tuning (SFT): The student models (e.g., Qwen-1.5B, Llama-14B) are fine-tuned on these 800k samples to match the DeepSeek-R1 output.
 4、Distilled Models: The student models are now distilled into smaller versions but retain much of DeepSeek-R1’s reasoning capability.
 5、Result: You get smaller, faster models with good reasoning abilities, ready for deployment.
+
+
+#### deepseek定价
+
+deepseek-chat 与 deepseek-reasoner 两个模型名将于日后弃用。出于兼容考虑，二者分别对应 deepseek-v4-flash 的非思考与思考模式。
+
+deepseek-v4-flash，百万tokens输入（缓存命中），0.02元，百万tokens输入（缓存未命中），1元，百万tokens输出，2元
+
+DeepSeek-V4-Pro，百万tokens输入（缓存命中），0.025元（0.1元），百万tokens输入（缓存未命中），3元（12元），百万tokens输出，6元（12元）
+
+
+#### API相关
+
+思考模式开关：{"thinking": {"type": "enabled/disabled"}}
+
+思考强度控制：OpenAI格式：{"reasoning_effort": "high/max"}，Anthropic 格式：{"output_config": {"effort": "high/max"}}

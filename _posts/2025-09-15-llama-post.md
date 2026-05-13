@@ -85,5 +85,19 @@ ollama show llama3.1:latest --template # 这个看的效果可能更好
 
 ```
 
+如果自己已经做出来了 gguf的话，可以再通过llama.cpp的 /build/bin下去量化
+
+```html
+
+./llama-quantize /Users/zqmalyssa/Code/pycharmproject/ai/sft/qwen2.5-1.5b-final.gguf /Users/zqmalyssa/Code/pycharmproject/ai/sft/qwen2.5-1.5b-final-q4_k_m.gguf Q4_K_M
+
+# 原来3G的大小，量化下来1个G左右
+
+ollama create my-qwen-quantize-final -f Modelfile_quantize_qwen
+
+# Q4的量化得到的模型效果肯定还是不如原生的
+
+```
+
 
 #### 参数设置

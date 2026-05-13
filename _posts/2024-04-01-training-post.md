@@ -466,6 +466,208 @@ BERT-Base (Google 原版): 在超大规模语料（维基百科+书籍）上预�
 
 ```
 
+6、训练DPO看看
+
+```html
+
+1%|          | 1/100 [00:31<52:37, 31.90s/it]{'loss': '0.6931', 'grad_norm': '3.356', 'learning_rate': '5e-05', 'entropy': '0.9337', 'num_tokens': '6504', 'logits/chosen': '-0.1965', 'logits/rejected': '-0.6364', 'mean_token_accuracy': '0.7482', 'rewards/chosen': '-2.146e-06', 'rewards/rejected': '-1.812e-06', 'rewards/accuracies': '0.625', 'rewards/margins': '-3.338e-07', 'logps/chosen': '-210', 'logps/rejected': '-186.9', 'epoch': '0.0006221'}
+  2%|▏         | 2/100 [01:03<51:49, 31.73s/it]{'loss': '0.6788', 'grad_norm': '4.101', 'learning_rate': '4.95e-05', 'entropy': '0.9772', 'num_tokens': '1.195e+04', 'logits/chosen': '-0.3559', 'logits/rejected': '-0.8508', 'mean_token_accuracy': '0.6901', 'rewards/chosen': '0.003706', 'rewards/rejected': '-0.02532', 'rewards/accuracies': '1', 'rewards/margins': '0.02902', 'logps/chosen': '-285.7', 'logps/rejected': '-252.9', 'epoch': '0.001244'}
+  3%|▎         | 3/100 [01:29<47:20, 29.28s/it]{'loss': '0.664', 'grad_norm': '3.695', 'learning_rate': '4.9e-05', 'entropy': '1.066', 'num_tokens': '1.809e+04', 'logits/chosen': '-0.588', 'logits/rejected': '-0.7029', 'mean_token_accuracy': '0.7232', 'rewards/chosen': '0.00286', 'rewards/rejected': '-0.05659', 'rewards/accuracies': '1', 'rewards/margins': '0.05945', 'logps/chosen': '-123.2', 'logps/rejected': '-217', 'epoch': '0.001866'}
+  4%|▍         | 4/100 [02:00<47:38, 29.77s/it]{'loss': '0.6578', 'grad_norm': '3.531', 'learning_rate': '4.85e-05', 'entropy': '0.9601', 'num_tokens': '2.32e+04', 'logits/chosen': '-0.8953', 'logits/rejected': '-1.271', 'mean_token_accuracy': '0.7373', 'rewards/chosen': '0.01028', 'rewards/rejected': '-0.06271', 'rewards/accuracies': '0.875', 'rewards/margins': '0.07298', 'logps/chosen': '-205.9', 'logps/rejected': '-190.4', 'epoch': '0.002488'}
+  5%|▌         | 5/100 [02:30<47:24, 29.94s/it]{'loss': '0.6296', 'grad_norm': '3.744', 'learning_rate': '4.8e-05', 'entropy': '1.061', 'num_tokens': '2.855e+04', 'logits/chosen': '-0.1584', 'logits/rejected': '-0.6586', 'mean_token_accuracy': '0.6493', 'rewards/chosen': '0.01574', 'rewards/rejected': '-0.1164', 'rewards/accuracies': '1', 'rewards/margins': '0.1321', 'logps/chosen': '-114.4', 'logps/rejected': '-273.5', 'epoch': '0.00311'}
+  6%|▌         | 6/100 [03:27<1:01:05, 39.00s/it]{'loss': '0.6238', 'grad_norm': '3.764', 'learning_rate': '4.75e-05', 'entropy': '0.9966', 'num_tokens': '3.58e+04', 'logits/chosen': '-0.2525', 'logits/rejected': '-1.05', 'mean_token_accuracy': '0.6973', 'rewards/chosen': '0.005831', 'rewards/rejected': '-0.1412', 'rewards/accuracies': '1', 'rewards/margins': '0.1471', 'logps/chosen': '-129.1', 'logps/rejected': '-228.3', 'epoch': '0.003733'}
+{'loss': '0.6274', 'grad_norm': '3.225', 'learning_rate': '4.7e-05', 'entropy': '0.9588', 'num_tokens': '4.29e+04', 'logits/chosen': '-0.03961', 'logits/rejected': '-0.6496', 'mean_token_accuracy': '0.6753', 'rewards/chosen': '0.01617', 'rewards/rejected': '-0.1244', 'rewards/accuracies': '0.75', 'rewards/margins': '0.1406', 'logps/chosen': '-251.4', 'logps/rejected': '-197.7', 'epoch': '0.004355'}
+  8%|▊         | 8/100 [04:41<56:13, 36.67s/it]{'loss': '0.582', 'grad_norm': '3.391', 'learning_rate': '4.65e-05', 'entropy': '1.147', 'num_tokens': '4.811e+04', 'logits/chosen': '-0.4296', 'logits/rejected': '-0.9151', 'mean_token_accuracy': '0.6918', 'rewards/chosen': '-0.00167', 'rewards/rejected': '-0.2467', 'rewards/accuracies': '0.875', 'rewards/margins': '0.2451', 'logps/chosen': '-278', 'logps/rejected': '-190', 'epoch': '0.004977'}
+  9%|▉         | 9/100 [05:11<52:25, 34.57s/it]{'loss': '0.5758', 'grad_norm': '3.396', 'learning_rate': '4.6e-05', 'entropy': '0.9697', 'num_tokens': '5.262e+04', 'logits/chosen': '-0.2247', 'logits/rejected': '-0.5282', 'mean_token_accuracy': '0.7139', 'rewards/chosen': '0.01361', 'rewards/rejected': '-0.2398', 'rewards/accuracies': '1', 'rewards/margins': '0.2534', 'logps/chosen': '-130.5', 'logps/rejected': '-186.8', 'epoch': '0.005599'}
+ 10%|█         | 10/100 [06:16<1:06:13, 44.15s/it]{'loss': '0.5639', 'grad_norm': '3.439', 'learning_rate': '4.55e-05', 'entropy': '0.9872', 'num_tokens': '5.961e+04', 'logits/chosen': '-0.5888', 'logits/rejected': '-0.8567', 'mean_token_accuracy': '0.6675', 'rewards/chosen': '0.02497', 'rewards/rejected': '-0.2622', 'rewards/accuracies': '1', 'rewards/margins': '0.2872', 'logps/chosen': '-182.7', 'logps/rejected': '-243', 'epoch': '0.006221'}
+
+
+chat template saved in ./dpo_results/checkpoint-100/chat_template.jinja
+tokenizer config file saved in ./dpo_results/checkpoint-100/tokenizer_config.json
+
+{'train_runtime': '5082', 'train_samples_per_second': '0.157', 'train_steps_per_second': '0.02', 'train_loss': '0.2308', 'epoch': '0.06221'}
+
+
+```
+
+这边loss是越小越好，DPO的loss反应了模型对chosen和rejected的概率区分度。
+
+- 偏好相关指标 (Rewards & Margins)
+
+rewards/margins (奖励差值)：这是 chosen 的奖励减去 rejected 的奖励。它必须是正数且持续上升。你的数据从 -3.338e-07（几乎为0）升到了 0.1321，说明模型开始明确“偏爱”好回答了。
+
+rewards/accuracies (奖励准确率)：指在一批数据中，chosen 的得分确实高于 rejected 的比例。你的数据在 0.875 到 1.0 之间波动，说明模型目前的判断非常准。
+
+rewards/chosen & rewards/rejected：分别代表两类回答的隐式奖励分。理想状态下，前者应上升，后者应下降。
+
+- 模型表现指标：
+
+  - logits/chosen & logits/rejected：模型输出的未归一化原始分。
+
+  - entropy (熵)：代表模型输出的确定性。
+    - 如果熵急剧下降，说明模型变得非常“武断”，可能会出现模式崩溃（Model Collapse），即只会翻来复去说那几句话。
+    - 你的熵在 0.9 到 1.0 之间，非常健康。
+
+  - mean_token_accuracy：预测下一个 token 的准确率。
+
+- 训练工程指标
+
+  - grad_norm (梯度范数)：反映训练是否稳定。如果这个数值突然爆表（比如变成几百上千），说明训练炸了（梯度爆炸）。你的 3-4 左右非常正常。
+  - it/s (或 s/it)：在 Mac 上约 30 秒一个 step，对于 1.5B 模型来说速度尚可。
+
+rewards/margins 提升得很快，如果训练到后期 Loss 降得太快（比如接近 0.1），可能会导致模型过度拟合偏好数据，反而丧失了原本的通用对话能力
+
+7、sft一个基座模型看看
+
+用一个基座模型，去训练出一个能chat的模型，模型采用alpaca_gpt4_data_zh数据集，使用LoRA降低训练参数
+
+```html
+
+chat template saved in ./sft_output/checkpoint-3600/chat_template.jinja
+tokenizer config file saved in ./sft_output/checkpoint-3600/tokenizer_config.json
+{'loss': '1.638', 'grad_norm': '0.2898', 'learning_rate': '3.84e-05', 'entropy': '1.672', 'num_tokens': '1.918e+07', 'mean_token_accuracy': '0.6243', 'epoch': '2.425'}
+{'loss': '1.658', 'grad_norm': '0.3009', 'learning_rate': '3.403e-05', 'entropy': '1.694', 'num_tokens': '1.97e+07', 'mean_token_accuracy': '0.6189', 'epoch': '2.49'}
+ 83%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▋                                 | 3800/4578 [22:52:14<4:50:58, 22.44s/it]Saving model checkpoint to ./sft_output/checkpoint-3800
+loading configuration file config.json from cache at /Users/zqmalyssa/.cache/huggingface/hub/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323/config.json
+Model config Qwen2Config {
+  "architectures": [
+    "Qwen2ForCausalLM"
+  ],
+  "attention_dropout": 0.0,
+  "bos_token_id": 151643,
+  "dtype": "bfloat16",
+  "eos_token_id": 151643,
+  "hidden_act": "silu",
+  "hidden_size": 1536,
+  "initializer_range": 0.02,
+  "intermediate_size": 8960,
+  "layer_types": [
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention"
+  ],
+  "max_position_embeddings": 131072,
+  "max_window_layers": 28,
+  "model_type": "qwen2",
+  "num_attention_heads": 12,
+  "num_hidden_layers": 28,
+  "num_key_value_heads": 2,
+  "pad_token_id": null,
+  "rms_norm_eps": 1e-06,
+  "rope_parameters": {
+    "rope_theta": 1000000.0,
+    "rope_type": "default"
+  },
+  "sliding_window": null,
+  "tie_word_embeddings": true,
+  "transformers_version": "5.5.4",
+  "use_cache": true,
+  "use_mrope": false,
+  "use_sliding_window": false,
+  "vocab_size": 151936
+}
+
+chat template saved in ./sft_output/checkpoint-3800/chat_template.jinja
+tokenizer config file saved in ./sft_output/checkpoint-3800/tokenizer_config.json
+{'loss': '1.66', 'grad_norm': '0.287', 'learning_rate': '2.966e-05', 'entropy': '1.7', 'num_tokens': '2.022e+07', 'mean_token_accuracy': '0.6177', 'epoch': '2.556'}
+ 87%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▊                         | 3991/4578 [24:05:02<3:19:53, 20.43s/it]{'loss': '1.643', 'grad_norm': '0.2627', 'learning_rate': '2.529e-05', 'entropy': '1.683', 'num_tokens': '2.074e+07', 'mean_token_accuracy': '0.6212', 'epoch': '2.621'}
+ 87%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████▎                        | 4000/4578 [24:08:23<3:17:30, 20.50s/it]Saving model checkpoint to ./sft_output/checkpoint-4000
+loading configuration file config.json from cache at /Users/zqmalyssa/.cache/huggingface/hub/models--Qwen--Qwen2.5-1.5B/snapshots/8faed761d45a263340a0528343f099c05c9a4323/config.json
+Model config Qwen2Config {
+  "architectures": [
+    "Qwen2ForCausalLM"
+  ],
+  "attention_dropout": 0.0,
+  "bos_token_id": 151643,
+  "dtype": "bfloat16",
+  "eos_token_id": 151643,
+  "hidden_act": "silu",
+  "hidden_size": 1536,
+  "initializer_range": 0.02,
+  "intermediate_size": 8960,
+  "layer_types": [
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention",
+    "full_attention"
+  ],
+  "max_position_embeddings": 131072,
+  "max_window_layers": 28,
+  "model_type": "qwen2",
+  "num_attention_heads": 12,
+  "num_hidden_layers": 28,
+  "num_key_value_heads": 2,
+  "pad_token_id": null,
+  "rms_norm_eps": 1e-06,
+  "rope_parameters": {
+    "rope_theta": 1000000.0,
+    "rope_type": "default"
+  },
+  "sliding_window": null,
+  "tie_word_embeddings": true,
+  "transformers_version": "5.5.4",
+  "use_cache": true,
+  "use_mrope": false,
+  "use_sliding_window": false,
+  "vocab_size": 151936
+}
+
+chat template saved in ./sft_output/checkpoint-4000/chat_template.jinja
+tokenizer config file saved in ./sft_output/checkpoint-4000/tokenizer_config.json
+
+```
+
+模型训练到 4000 steps差不多收敛了，然后使用test的代码也能回答了，1.6多的loss最终
+
 
 #### 代码相关
 
@@ -500,5 +702,56 @@ model.eval() 和 model.train()要切换执行
 
 @torch.no_grad() 或者 手动一下
 
+
+```
+
+#### 训练参数
+
+一些训练参数的总结
+
+```html
+
+Num examples = 48,818  # 数据集总行数
+Num Epochs = 3  # 训练的epoch
+Num update steps per epoch = 1,526  # 每轮更新多少次参数 48818 / 32 = 1525.56 次step的更新
+Instantaneous batch size per device = 16 # batch_size 是 16
+Total train batch size (w. parallel, distributed & accumulation) = 32  # 计算方式也是 16 * 2 = 32
+Gradient Accumulation steps = 2  # 累加梯度step是2，模型跑2次，（16*2 = 32）才更新一次参数
+Total optimization steps = 4,578  # 1526 * 3 = 4578，这个单位就是steps了
+Number of trainable parameters = 2,179,072  # 模型参数部分，1.5B一般是15亿参数，而现在只要 218万参数（这是因为LoRA的优化）
+
+```
+
+
+
+#### 训练指标
+
+1、为什么ln2是一个分类完全 又不完全的指标呢
+
+```html
+
+如果二分类问题，softmax出来后概率是 0.5的 0.5，
+
+真实标签是1和0，根据交叉熵计算 loss都会是 -ln(0.5) = -ln(1/2) = -(ln1 - ln2) = ln2 约等于 0.693  
+
+其实就是 -ln(0.5) = ln(2) # 倒数
+
+```
+
+2、loss指标相关
+
+```html
+
+如果词表大小是151643左右，那么，纯随机的时候是  -ln(1/151643) 约等于 12左右的loss
+
+在预训练好后，一般loss在 2 点多，假设loss是2，对应的概率 P = e的-2次方 约等于13.5%
+
+在sft之后，loss从2点多降到1.6，e的-1.6次方 约等于 20%，模型学会了对话结构
+
+Loss = -ln(P)
+
+-Loss = ln(P)
+
+e的-loss次方 = P
 
 ```

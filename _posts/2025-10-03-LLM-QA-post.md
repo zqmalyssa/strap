@@ -96,4 +96,18 @@ from bitsandbytes.nn import Linear4bit
 
 重启环境后运行时没了
 
+7、还是环境问题，如果在win/mac环境下遇到（[mutex.cc : 452] RAW: Lock blocking 0x600002224258   @）类似的报错，直接re-install环境把
+
+8、sft和dpo的模型推理问题
+
+```html
+
+messages = [
+        # 这个要加
+        {"role": "system", "content": "你是一个乐于助人的 AI 助手。"},
+        {"role": "user", "content": prompt}
+    ]
+
+system有的时候要加，不要问为什么，（不加可能导致回答出现 乱码）
+
 ```
